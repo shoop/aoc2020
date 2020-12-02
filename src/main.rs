@@ -20,11 +20,16 @@ fn main() {
         }
     }
 
-    for i in &vec {
-        for j in &vec {
-            if i + j == 2020 {
-                println!("{} + {} = {}", i, j, i + j);
+    let mut i = 0;
+    while i < vec.len() {
+        let mut j = i + 1;
+        while j < vec.len() {
+            if vec[i] + vec[j] == 2020 {
+                println!("{} + {} = {}", vec[i], vec[j], vec[i] + vec[j]);
+                println!("{} * {} = {}", vec[i], vec[j], vec[i] * vec[j]);
             }
+            j += 1;
         }
+        i += 1;
     }
 }
