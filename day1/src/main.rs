@@ -21,17 +21,15 @@ fn main() {
     }
 
     println!("Star 1:");
-    let mut i = 0;
-    while i < vec.len() {
+    for (i, first) in vec.iter().enumerate() {
         let mut j = i + 1;
         while j < vec.len() {
-            if vec[i] + vec[j] == 2020 {
-                println!("{} + {} = {}", vec[i], vec[j], vec[i] + vec[j]);
-                println!("{} * {} = {}", vec[i], vec[j], vec[i] * vec[j]);
+            if first + vec[j] == 2020 {
+                println!("{} + {} = {}", first, vec[j], first + vec[j]);
+                println!("{} * {} = {}", first, vec[j], first * vec[j]);
             }
             j += 1;
         }
-        i += 1;
     }
 
     println!("Star 2:");
@@ -43,7 +41,7 @@ fn main() {
             while k < vec.len() {
                 if vec[i] + vec[j] + vec[k] == 2020 {
                     println!("{} + {} + {} = {}", vec[i], vec[j], vec[k], vec[i] + vec[j] + vec[k]);
-                    println!("{} * {} + {} = {}", vec[i], vec[j], vec[k], vec[i] * vec[j] * vec[k]);
+                    println!("{} * {} * {} = {}", vec[i], vec[j], vec[k], vec[i] * vec[j] * vec[k]);
                 }
                 k += 1;
             }
