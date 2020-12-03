@@ -103,14 +103,25 @@ fn star_one(map: &Map) -> u32 {
 }
 
 fn star_two(map: &Map) -> u32 {
-    let slopes = vec![
-        map.slope(1, 1),
-        map.slope(3, 1),
-        map.slope(5, 1),
-        map.slope(7, 1),
-        map.slope(1, 2),
-    ];
-    slopes.into_iter().fold(1, |s, x| s * check_slope(x))
+    println!("slope(1,1) : {}", check_slope(map.slope(1, 1)));
+    println!("slope(3,1) : {}", check_slope(map.slope(3, 1)));
+    println!("slope(5,1) : {}", check_slope(map.slope(5, 1)));
+    println!("slope(7,1) : {}", check_slope(map.slope(7, 1)));
+    println!("slope(1,2) : {}", check_slope(map.slope(1, 2)));
+    check_slope(map.slope(1, 1))
+        * check_slope(map.slope(3, 1))
+        * check_slope(map.slope(5, 1))
+        * check_slope(map.slope(7, 1))
+        * check_slope(map.slope(1, 2))
+
+    // let slopes = vec![
+    //     map.slope(1, 1),
+    //     map.slope(3, 1),
+    //     map.slope(5, 1),
+    //     map.slope(7, 1),
+    //     map.slope(1, 2),
+    // ];
+    // slopes.into_iter().fold(1, |s, x| s * check_slope(x))
 }
 
 fn main() {
