@@ -61,7 +61,7 @@ fn parse_map(line: &str, mut map: Map) -> Result<Map, IncorrectMapTileError> {
     return Ok(map);
 }
 
-fn star_one(map: &Map) -> u32 {
+fn check_slope(map: &Map, incr_x: usize, incr_y: usize) -> u32 {
     let mut x: usize = 0;
     let mut y: usize = 0;
     let mut tree_count: u32 = 0;
@@ -69,10 +69,22 @@ fn star_one(map: &Map) -> u32 {
         if map.tile_at(x, y) == MapTile::Tree {
             tree_count += 1;
         }
-        x += 3;
-        y += 1;
+        x += incr_x;
+        y += incr_y;
     }
     tree_count
+}
+
+fn star_one(map: &Map) -> u32 {
+    check_slope(map, 3, 1)
+}
+
+fn star_two(map: &Map) -> u32 {
+    check_slope(map, 1, 1)
+        * check_slope(map, 3, 1)
+        * check_slope(map, 5, 1)
+        * check_slope(map, 7, 1)
+        * check_slope(map, 1, 2)
 }
 
 fn main() {
@@ -90,6 +102,10 @@ fn main() {
     println!("Star 1:");
     let nr_trees = star_one(&map);
     println!("Number of trees: {}", nr_trees);
+
+    println!("Star 2:");
+    let answer = star_two(&map);
+    println!("Number of trees in slopes, multiplied: {}", answer);
 }
 
 #[cfg(test)]
@@ -128,5 +144,26 @@ mod tests {
 
         let nr_trees = super::star_one(&map);
         assert_eq!(nr_trees, 7);
+    }
+
+    #[test]
+    fn test_star_two() {
+        let mut map = Map {
+            tiles: Vec::new(),
+            width: 0,
+            height: 0,
+        };
+        for line in TEST_MAP.lines() {
+            map = super::parse_map(line, map).expect("Invalid test data");
+        }
+        assert_eq!(map.width, 11);
+        assert_eq!(map.height, 11);
+
+        assert_eq!(map.tile_at(0, 0), MapTile::Empty);
+        assert_eq!(map.tile_at(0, 1), MapTile::Tree);
+        assert_eq!(map.tile_at(11, 12), MapTile::Tree);
+
+        let nr_trees = super::star_two(&map);
+        assert_eq!(nr_trees, 336);
     }
 }
