@@ -16,6 +16,7 @@ fn crop_letters(s: &str, pos: usize) -> &str {
     }
 }
 
+#[derive(Debug)]
 struct Entry {
     lower: usize,
     upper: usize,
@@ -55,12 +56,13 @@ fn main() {
     let mut valid: usize = 0;
     let mut invalid: usize = 0;
     for entry in &entries {
+        print!("{:?}: ", entry);
         let count = entry.pass.matches(entry.incl).count();
         if count >= entry.lower && count <= entry.upper {
-            println!("VALID: pass {} char {} count {} between {}-{}", entry.pass, entry.incl, entry.pass.matches(entry.incl).count(), entry.lower, entry.upper);
+            println!("count {} VALID!", count);
             valid = valid + 1;
         } else {
-            println!("INVALID: pass {} char {} count {} between {}-{}", entry.pass, entry.incl, entry.pass.matches(entry.incl).count(), entry.lower, entry.upper);
+            println!("count {} INVALID!", count);
             invalid = invalid + 1;
         }
     }
@@ -70,13 +72,14 @@ fn main() {
     let mut valid2: usize = 0;
     let mut invalid2: usize = 0;
     for entry in &entries {
+        print!("{:?}: ", entry);
         let match1 = entry.pass.chars().nth(entry.lower - 1).unwrap() == entry.incl;
         let match2 = entry.pass.chars().nth(entry.upper - 1).unwrap() == entry.incl;
         if (match1 && !match2) || (!match1 && match2) {  
-            println!("VALID: pass {} char {} positions {} and {}", entry.pass, entry.incl, entry.lower, entry.upper);
+            println!("VALID!");
             valid2 = valid2 + 1;
         } else {
-            println!("INVALID: pass {} char {} positions {} and {}", entry.pass, entry.incl, entry.lower, entry.upper);
+            println!("INVALID!");
             invalid2 = invalid2 + 1;
         }
     }
