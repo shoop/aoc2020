@@ -4,7 +4,9 @@ use std::path::Path;
 use std::vec::Vec;
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where P: AsRef<Path>, {
+where
+    P: AsRef<Path>,
+{
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
 }
@@ -33,9 +35,28 @@ fn star_one(numbers: &Vec<i32>) -> (i32, i32) {
     (-1, -1)
 }
 
+fn star_two(numbers: &Vec<i32>) -> (i32, i32, i32) {
+    let mut i = 0;
+    while i < numbers.len() {
+        let mut j = i + 1;
+        while j < numbers.len() {
+            let mut k = j + 1;
+            while k < numbers.len() {
+                if numbers[i] + numbers[j] + numbers[k] == 2020 {
+                    return (numbers[i], numbers[j], numbers[k]);
+                }
+                k += 1;
+            }
+            j += 1;
+        }
+        i += 1;
+    }
+    (-1, -1, -1)
+}
+
+
 fn main() {
-    let lines = read_lines("./input")
-        .expect("Could not read input file ./input");
+    let lines = read_lines("./input").expect("Could not read input file ./input");
     let numbers = parse_numbers(lines);
 
     println!("Star 1:");
@@ -44,28 +65,26 @@ fn main() {
     println!("{} * {} = {}", num1, num2, num1 * num2);
 
     println!("Star 2:");
-    let mut i = 0;
-    while i < numbers.len() {
-        let mut j = i + 1;
-        while j < numbers.len() {
-            let mut k = j + 1;
-            while k < numbers.len() {
-                if numbers[i] + numbers[j] + numbers[k] == 2020 {
-                    println!("{} + {} + {} = {}", numbers[i], numbers[j], numbers[k], numbers[i] + numbers[j] + numbers[k]);
-                    println!("{} * {} * {} = {}", numbers[i], numbers[j], numbers[k], numbers[i] * numbers[j] * numbers[k]);
-                }
-                k += 1;
-            }
-            j += 1;
-        }
-        i += 1;
-    }
+    let (num1, num2, num3) = star_two(&numbers);
+    println!("{} + {} + {} = {}", num1, num2, num3, num1 + num2 + num3);
+    println!("{} * {} * {} = {}", num1, num2, num3, num1 * num2 * num3);
 }
 
-// #[cfg(test)]
-// mod tests {
-//     #[test]
-//     fn it_works() {
-//         assert_eq!(2 + 2, 4);
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_star_one() {
+        let numbers = vec![1721, 979, 366, 299, 675, 1456];
+        let (num1, num2) = super::star_one(&numbers);
+        assert_eq!(num1 + num2, 2020);
+        assert_eq!(num1 * num2, 514579);
+    }
+
+    #[test]
+    fn test_star_two() {
+        let numbers = vec![1721, 979, 366, 299, 675, 1456];
+        let (num1, num2, num3) = super::star_two(&numbers);
+        assert_eq!(num1 + num2 + num3, 2020);
+        assert_eq!(num1 * num2 * num3, 241861950);
+    }
+}
