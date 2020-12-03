@@ -3,8 +3,8 @@ use std::io::{self, BufRead};
 use std::path::Path;
 use std::vec::Vec;
 
-#[derive(Debug)]
-struct DayOneError;
+#[derive(Debug, PartialEq)]
+struct CorrectNumbersNotFoundError;
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 where
@@ -25,38 +25,29 @@ fn parse_numbers(lines: io::Lines<io::BufReader<File>>) -> Vec<i32> {
     numbers
 }
 
-fn star_one(numbers: &Vec<i32>) -> Result<(i32, i32), DayOneError> {
+fn star_one(numbers: &Vec<i32>) -> Result<(i32, i32), CorrectNumbersNotFoundError> {
     for (i, first) in numbers.iter().enumerate() {
-        let mut j = i + 1;
-        while j < numbers.len() {
-            if first + numbers[j] == 2020 {
-                return Ok((*first, numbers[j]));
+        for (_, second) in numbers.iter().enumerate().skip(i) {
+            if first + second == 2020 {
+                return Ok((*first, *second));
             }
-            j += 1;
         }
     }
-    Err(DayOneError)
+    Err(CorrectNumbersNotFoundError)
 }
 
-fn star_two(numbers: &Vec<i32>) -> Result<(i32, i32, i32), DayOneError> {
-    let mut i = 0;
-    while i < numbers.len() {
-        let mut j = i + 1;
-        while j < numbers.len() {
-            let mut k = j + 1;
-            while k < numbers.len() {
-                if numbers[i] + numbers[j] + numbers[k] == 2020 {
-                    return Ok((numbers[i], numbers[j], numbers[k]));
+fn star_two(numbers: &Vec<i32>) -> Result<(i32, i32, i32), CorrectNumbersNotFoundError> {
+    for (i, first) in numbers.iter().enumerate() {
+        for (j, second) in numbers.iter().enumerate().skip(i) {
+            for (_, third) in numbers.iter().enumerate().skip(j) {
+                if first + second + third == 2020 {
+                    return Ok((*first, *second, *third));
                 }
-                k += 1;
             }
-            j += 1;
         }
-        i += 1;
     }
-    Err(DayOneError)
+    Err(CorrectNumbersNotFoundError)
 }
-
 
 fn main() {
     let lines = read_lines("./input").expect("Could not read input file ./input");
@@ -81,6 +72,10 @@ mod tests {
         let (num1, num2) = super::star_one(&numbers).expect("Invalid test data");
         assert_eq!(num1 + num2, 2020);
         assert_eq!(num1 * num2, 514579);
+
+        let numbers = vec![1, 2];
+        let result = super::star_one(&numbers);
+        assert_eq!(result, Err(super::CorrectNumbersNotFoundError));
     }
 
     #[test]
@@ -89,5 +84,9 @@ mod tests {
         let (num1, num2, num3) = super::star_two(&numbers).expect("Invalid test data");
         assert_eq!(num1 + num2 + num3, 2020);
         assert_eq!(num1 * num2 * num3, 241861950);
+
+        let numbers = vec![1, 2, 3];
+        let result = super::star_two(&numbers);
+        assert_eq!(result, Err(super::CorrectNumbersNotFoundError));
     }
 }
