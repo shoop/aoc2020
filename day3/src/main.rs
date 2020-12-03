@@ -32,6 +32,24 @@ impl Map {
     }
 }
 
+fn parse_map(mut map: Map, line: String) -> Result<Map, IncorrectMapTileError> {
+    for c in line.chars() {
+        match c {
+            '.' => map.tiles.push(MapTile::Empty),
+            '#' => map.tiles.push(MapTile::Tree),
+            _ => return Err(IncorrectMapTileError),
+        }
+    }
+
+    if map.width == 0 {
+        map.width = line.chars().count();
+    }
+
+    map.height += 1;
+
+    Ok(map)
+}
+
 struct Slope<'a> {
     map: &'a Map,
     incr_x: usize,
@@ -61,7 +79,7 @@ impl Iterator for SlopeIntoIterator<'_> {
     type Item = MapTile;
 
     fn next(&mut self) -> Option<MapTile> {
-        if self.cur_y > self.slope.map.height {
+        if self.cur_y >= self.slope.map.height {
             return None;
         }
 
@@ -73,25 +91,7 @@ impl Iterator for SlopeIntoIterator<'_> {
     }
 }
 
-fn parse_map(mut map: Map, line: String) -> Result<Map, IncorrectMapTileError> {
-    for c in line.chars() {
-        match c {
-            '.' => map.tiles.push(MapTile::Empty),
-            '#' => map.tiles.push(MapTile::Tree),
-            _ => return Err(IncorrectMapTileError),
-        }
-    }
-
-    if map.width == 0 {
-        map.width = line.chars().count();
-    }
-
-    map.height += 1;
-
-    Ok(map)
-}
-
-fn check_slope<'a>(slope: Slope<'a>) -> u32 {
+fn nr_trees_for_slope<'a>(slope: Slope<'a>) -> u32 {
     slope.into_iter().fold(0u32, |s, x| match x {
         MapTile::Tree => s + 1,
         MapTile::Empty => s,
@@ -99,29 +99,18 @@ fn check_slope<'a>(slope: Slope<'a>) -> u32 {
 }
 
 fn star_one(map: &Map) -> u32 {
-    check_slope(map.slope(3, 1))
+    nr_trees_for_slope(map.slope(3, 1))
 }
 
 fn star_two(map: &Map) -> u32 {
-    println!("slope(1,1) : {}", check_slope(map.slope(1, 1)));
-    println!("slope(3,1) : {}", check_slope(map.slope(3, 1)));
-    println!("slope(5,1) : {}", check_slope(map.slope(5, 1)));
-    println!("slope(7,1) : {}", check_slope(map.slope(7, 1)));
-    println!("slope(1,2) : {}", check_slope(map.slope(1, 2)));
-    check_slope(map.slope(1, 1))
-        * check_slope(map.slope(3, 1))
-        * check_slope(map.slope(5, 1))
-        * check_slope(map.slope(7, 1))
-        * check_slope(map.slope(1, 2))
-
-    // let slopes = vec![
-    //     map.slope(1, 1),
-    //     map.slope(3, 1),
-    //     map.slope(5, 1),
-    //     map.slope(7, 1),
-    //     map.slope(1, 2),
-    // ];
-    // slopes.into_iter().fold(1, |s, x| s * check_slope(x))
+    let slopes = vec![
+        map.slope(1, 1),
+        map.slope(3, 1),
+        map.slope(5, 1),
+        map.slope(7, 1),
+        map.slope(1, 2),
+    ];
+    slopes.into_iter().fold(1, |s, x| s * nr_trees_for_slope(x))
 }
 
 fn main() {
