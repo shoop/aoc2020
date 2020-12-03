@@ -1,27 +1,34 @@
 use core::fmt::Debug;
 use std::fs::File;
 use std::io::{self, BufRead};
-use std::path::Path;
 use std::vec::Vec;
 
 #[derive(Debug, PartialEq)]
 struct IncorrectMapTileError;
 
-fn process_lines<P, Q, R, S>(filename: P, processor: Q, initial: R) -> Result<R, io::Error>
-where
-    P: AsRef<Path>,
-    Q: Fn(&str, R) -> Result<R, S>,
-    S: Debug,
-{
-    let file = File::open(filename)?;
-    let mut result: R = initial;
-    let lines = io::BufReader::new(file).lines();
-    for line in lines {
-        if let Ok(read) = line {
-            result = processor(&read, result).expect("Invalid input");
-        }
+type Processor<S, E> = fn(&str, S) -> Result<S, E>;
+
+fn process_lines<S, E>(
+    iter: impl Iterator<Item = std::string::String>,
+    processor: Processor<S, E>,
+    initial: S,
+) -> Result<S, E> {
+    let mut result = initial;
+    for read in iter {
+        result = processor(&read, result)?;
     }
     Ok(result)
+}
+
+fn process_lines_from_file<S, E>(
+    file: &std::fs::File,
+    processor: Processor<S, E>,
+    initial: S,
+) -> Result<S, E> {
+    let iter = io::BufReader::new(file)
+        .lines()
+        .map(|x| x.expect("Could not read line"));
+    process_lines(iter, processor, initial)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -58,13 +65,14 @@ fn parse_map(line: &str, mut map: Map) -> Result<Map, IncorrectMapTileError> {
     }
     map.height = map.height + 1;
 
-    return Ok(map);
+    Ok(map)
 }
 
 fn check_slope(map: &Map, incr_x: usize, incr_y: usize) -> u32 {
     let mut x: usize = 0;
     let mut y: usize = 0;
     let mut tree_count: u32 = 0;
+
     while y < map.height {
         if map.tile_at(x, y) == MapTile::Tree {
             tree_count += 1;
@@ -72,6 +80,7 @@ fn check_slope(map: &Map, incr_x: usize, incr_y: usize) -> u32 {
         x += incr_x;
         y += incr_y;
     }
+
     tree_count
 }
 
@@ -88,8 +97,9 @@ fn star_two(map: &Map) -> u32 {
 }
 
 fn main() {
-    let map = process_lines(
-        "./input",
+    let file = File::open("./input").expect("Unreadable input file ./input");
+    let map = process_lines_from_file(
+        &file,
         parse_map,
         Map {
             tiles: Vec::new(),
@@ -127,14 +137,17 @@ mod tests {
 
     #[test]
     fn test_star_one() {
-        let mut map = Map {
-            tiles: Vec::new(),
-            width: 0,
-            height: 0,
-        };
-        for line in TEST_MAP.lines() {
-            map = super::parse_map(line, map).expect("Invalid test data");
-        }
+        let map = super::process_lines(
+            TEST_MAP.lines().map(|x| x.to_string()),
+            super::parse_map,
+            Map {
+                tiles: Vec::new(),
+                width: 0,
+                height: 0,
+            },
+        )
+        .expect("Invalid test data");
+
         assert_eq!(map.width, 11);
         assert_eq!(map.height, 11);
 
