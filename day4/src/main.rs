@@ -18,6 +18,22 @@ struct Passport {
     cid: Option<String>, // (Country ID)
 }
 
+fn is_parseable_year_between(elem: &str, lbound: usize, ubound: usize) -> bool {
+    if elem.chars().count() != 4 || !elem.chars().all(char::is_numeric) {
+        return false;
+    }
+    let elem_parsed = elem.parse::<usize>();
+    if elem_parsed.is_err() {
+        return false;
+    }
+    let elem_parsed = elem_parsed.unwrap();
+    if elem_parsed < lbound || elem_parsed > ubound {
+        return false;
+    }
+
+    true
+}
+
 impl Passport {
     fn is_somewhat_valid(&self) -> bool {
         self.byr != None
@@ -35,38 +51,17 @@ impl Passport {
         }
 
         // byr
-        if self.byr.as_ref().unwrap().chars().count() != 4 || !self.byr.as_ref().unwrap().chars().all(char::is_numeric) {
-            return false;
-        }
-        let byr_parsed = self.byr.as_ref().unwrap().parse::<usize>();
-        if byr_parsed.is_err() {
-            return false;
-        }
-        if byr_parsed.as_ref().unwrap() < &1920 || byr_parsed.as_ref().unwrap() > &2002 {
+        if !is_parseable_year_between(self.byr.as_ref().unwrap(), 1920, 2002) {
             return false;
         }
 
         // iyr
-        if self.iyr.as_ref().unwrap().chars().count() != 4 || !self.iyr.as_ref().unwrap().chars().all(char::is_numeric) {
-            return false;
-        }
-        let iyr_parsed = self.iyr.as_ref().unwrap().parse::<usize>();
-        if iyr_parsed.is_err() {
-            return false;
-        }
-        if iyr_parsed.as_ref().unwrap() < &2010 || iyr_parsed.as_ref().unwrap() > &2020 {
+        if !is_parseable_year_between(self.iyr.as_ref().unwrap(), 2010, 2020) {
             return false;
         }
 
         // eyr
-        if self.eyr.as_ref().unwrap().chars().count() != 4 || !self.eyr.as_ref().unwrap().chars().all(char::is_numeric) {
-            return false;
-        }
-        let eyr_parsed = self.eyr.as_ref().unwrap().parse::<usize>();
-        if eyr_parsed.is_err() {
-            return false;
-        }
-        if eyr_parsed.as_ref().unwrap() < &2020 || eyr_parsed.as_ref().unwrap() > &2030 {
+        if !is_parseable_year_between(self.eyr.as_ref().unwrap(), 2020, 2030) {
             return false;
         }
 
