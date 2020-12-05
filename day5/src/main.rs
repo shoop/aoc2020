@@ -45,9 +45,27 @@ fn star_one(seats: &Vec<Seat>) -> usize {
     })
 }
 
+#[derive(Debug)]
+struct NoSeatFound;
+
+fn star_two(seats: &mut Vec<Seat>) -> Result<usize, NoSeatFound> {
+    seats.sort_by(|a, b| {
+        a.seat_id().cmp(&b.seat_id())
+    });
+    let mut last_id: usize = 0;
+    for seat in seats {
+        if (last_id != 0) && (last_id == seat.seat_id() - 2) {
+            return Ok(seat.seat_id() - 1);
+        }
+        last_id = seat.seat_id();
+    }
+
+    Err(NoSeatFound)
+}
+
 fn main() {
     let file = File::open("./input").expect("Unreadable input file ./input");
-    let seats = io::BufReader::new(file)
+    let mut seats = io::BufReader::new(file)
         .lines()
         .map(|x| x.expect("Could not read line"))
         .try_fold(
@@ -59,6 +77,10 @@ fn main() {
     println!("Star 1:");
     let highest_seat_id = star_one(&seats);
     println!("Highest seat ID: {}", highest_seat_id);
+
+    println!("Star 2:");
+    let my_seat_id = star_two(&mut seats).expect("No suitable seat found");
+    println!("My seat ID: {}", my_seat_id);
 }
 
 #[cfg(test)]
