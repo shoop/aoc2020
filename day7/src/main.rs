@@ -106,6 +106,23 @@ fn star_one(bags: &HashMap<String, Bag>) -> usize {
         .fold(0_usize, |s, (_, b)| if can_contain(&b.name, "shiny gold", bags) { s + 1 } else { s })
 }
 
+fn count_contained(bag_name: &str, bags: &HashMap<String, Bag>) -> usize {
+    let bag = match bags.get(bag_name) {
+        Some(bag) => bag,
+        None => return 0,
+    };
+
+    bag.contents.iter()
+        .fold(0, |total, (name, count)| {
+            total + (count * count_contained(name, bags))
+        }
+    ) + 1
+}
+
+fn star_two(bags: &HashMap<String, Bag>) -> usize {
+    count_contained("shiny gold", bags) - 1
+}
+
 fn main() {
     let file = File::open("./input").expect("Unreadable input file ./input");
     let bags = io::BufReader::new(file)
@@ -117,13 +134,17 @@ fn main() {
     println!("Star 1:");
     let bag_colors_for_shiny_bag = star_one(&bags);
     println!("Bag colors that can contain at least one shiny gold bag: {}", bag_colors_for_shiny_bag);
+
+    println!("Star 2:");
+    let bag_count_inside_shiny_bag = star_two(&bags);
+    println!("Individual bags inside a single shiny gold bag: {}", bag_count_inside_shiny_bag);
 }
 
 #[cfg(test)]
 mod tests {
     use crate::HashMap;
 
-    static TEST_DATA: &str = "light red bags contain 1 bright white bag, 2 muted yellow bags.
+    static TEST_DATA_STAR_ONE: &str = "light red bags contain 1 bright white bag, 2 muted yellow bags.
 dark orange bags contain 3 bright white bags, 4 muted yellow bags.
 bright white bags contain 1 shiny gold bag.
 muted yellow bags contain 2 shiny gold bags, 9 faded blue bags.
@@ -135,7 +156,7 @@ dotted black bags contain no other bags.";
 
     #[test]
     fn test_star_one() {
-        let bags = TEST_DATA
+        let bags = TEST_DATA_STAR_ONE
             .lines()
             .map(|x| x.to_string())
             .try_fold(HashMap::new(), super::parse_bag_specification)
@@ -165,5 +186,36 @@ dotted black bags contain no other bags.";
         assert_eq!(super::can_contain("faded blue", "dotted black", &bags), false);
 
         assert_eq!(super::star_one(&bags), 4);
+    }
+
+    static TEST_DATA_STAR_TWO: &str = "shiny gold bags contain 2 dark red bags.
+dark red bags contain 2 dark orange bags.
+dark orange bags contain 2 dark yellow bags.
+dark yellow bags contain 2 dark green bags.
+dark green bags contain 2 dark blue bags.
+dark blue bags contain 2 dark violet bags.
+dark violet bags contain no other bags.";
+
+    #[test]
+    fn test_star_two() {
+        let bags = TEST_DATA_STAR_TWO
+            .lines()
+            .map(|x| x.to_string())
+            .try_fold(HashMap::new(), super::parse_bag_specification)
+            .expect("Invalid data in input file");
+
+        assert_eq!(bags.len(), 7);
+
+        assert_eq!(bags.contains_key("dark red"), true);
+        let bag = bags.get("dark red").unwrap();
+        assert_eq!(bag.name, "dark red");
+        assert_eq!(bag.contents.len(), 1);
+        assert_eq!(bag.contents.contains_key("dark orange"), true);
+        let amount = bag.contents.get("dark orange").unwrap();
+        assert_eq!(amount, &2_usize);
+
+        assert_eq!(super::can_contain("shiny gold", "dark red", &bags), true);
+
+        assert_eq!(super::star_two(&bags), 126);
     }
 }
