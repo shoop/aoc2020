@@ -35,7 +35,10 @@ impl Instruction {
         };
 
         if let Ok(operand) = raw_operand.parse::<isize>() {
-            Ok(Instruction { operation: operation, operand: operand })
+            Ok(Instruction {
+                operation: operation,
+                operand: operand,
+            })
         } else {
             Err(IncorrectInstruction)
         }
@@ -56,7 +59,9 @@ impl Program {
 
 impl Clone for Program {
     fn clone(&self) -> Program {
-        Program { instructions: self.instructions.clone() }
+        Program {
+            instructions: self.instructions.clone(),
+        }
     }
 }
 
@@ -64,22 +69,33 @@ impl Clone for Program {
 struct JmpOutOfBoundsError;
 
 #[derive(Debug)]
-struct CPU<'a> {
+struct CPU {
     accumulator: isize,
     instruction_pointer: usize,
-    program: &'a Program,
+    program: Program,
     visited: Vec<bool>,
 }
 
-impl<'a> Clone for CPU<'a> {
-    fn clone(&self) -> CPU<'a> {
-        CPU { accumulator: self.accumulator, instruction_pointer: self.instruction_pointer, program: self.program, visited: self.visited.clone() }
+impl Clone for CPU {
+    fn clone(&self) -> CPU {
+        CPU {
+            accumulator: self.accumulator,
+            instruction_pointer: self.instruction_pointer,
+            program: self.program.clone(),
+            visited: self.visited.clone(),
+        }
     }
 }
 
-impl<'a> CPU<'_> {
-    fn new(program: &'a Program) -> CPU<'a> {
-        CPU { accumulator: 0, instruction_pointer: 0, program: program, visited: vec![false; program.instructions.len()] }
+impl CPU {
+    fn new(program: Program) -> CPU {
+        let len = program.instructions.len();
+        CPU {
+            accumulator: 0,
+            instruction_pointer: 0,
+            program: program,
+            visited: vec![false; len],
+        }
     }
 
     fn run_instruction(&mut self, instruction: &Instruction) -> isize {
@@ -109,13 +125,27 @@ impl<'a> CPU<'_> {
         Ok(())
     }
 
-    fn run_program_until_loop(&mut self) -> Result<bool, JmpOutOfBoundsError> {
-        while !self.visited[self.instruction_pointer] {
-            self.visited[self.instruction_pointer] = true;
-            let delta = self.run_instruction(&self.program.instructions[self.instruction_pointer]);
-            self.update_instruction_pointer(delta)?;
+    fn visited(&self) -> bool {
+        self.visited[self.instruction_pointer]
+    }
 
-            if self.instruction_pointer >= self.program.instructions.len() {
+    fn terminated(&self) -> bool {
+        self.instruction_pointer >= self.program.instructions.len()
+    }
+
+    fn single_step(&mut self) -> Result<(), JmpOutOfBoundsError> {
+        self.visited[self.instruction_pointer] = true;
+        let instruction = &self.program.instructions[self.instruction_pointer].clone();
+        let delta = self.run_instruction(instruction);
+        self.update_instruction_pointer(delta)?;
+        Ok(())
+    }
+
+    fn run_program_until_loop(&mut self) -> Result<bool, JmpOutOfBoundsError> {
+        while !self.visited() {
+            self.single_step()?;
+
+            if self.terminated() {
                 return Ok(true);
             }
         }
@@ -125,57 +155,84 @@ impl<'a> CPU<'_> {
 }
 
 fn star_one(program: &Program) -> isize {
-    let mut cpu = CPU::new(program);
-    cpu.run_program_until_loop().expect("Program should not jump out of bounds");
+    let mut cpu = CPU::new(program.clone());
+    cpu.run_program_until_loop()
+        .expect("Program should not jump out of bounds");
     cpu.accumulator
 }
 
-fn star_two(program: &Program) -> isize {
-    let mut modded = program.clone();
-    let mut modded_ip = 0;
+fn run_possible_mods(cpu: &mut CPU, is_modded: bool) -> (bool, isize, usize) {
+    let mut instructions_ran: usize = 0;
     loop {
-        let mut cpu = CPU::new(&modded);
-        let done = cpu.run_program_until_loop().expect("Program should not jump out of bounds");
-        if done {
-            return cpu.accumulator
+        match (&cpu.program.instructions[cpu.instruction_pointer].operation, is_modded) {
+            (_, true) => {},
+            (Operation::Acc, false) => {}
+            (other, false) => {
+                // Fork state
+                let mut modded_cpu = cpu.clone();
+                modded_cpu.program.instructions[cpu.instruction_pointer].operation =
+                    match other {
+                        Operation::Jmp => Operation::Nop,
+                        Operation::Nop => Operation::Jmp,
+                        Operation::Acc => unreachable!(),
+                    };
+                let (done, result, branch_instructions_ran) = run_possible_mods(&mut modded_cpu, true);
+                instructions_ran += branch_instructions_ran;
+                if done {
+                    return (done, result, instructions_ran);
+                }
+            },
         }
 
-        // Mod next instruction in sequence
-        // TODO: figure out smart walk
-        for (index, instruction) in program.instructions.iter().enumerate().skip(modded_ip) {
-            if instruction.operation == Operation::Jmp || instruction.operation == Operation::Nop {
-                modded_ip = index;
-                break;
-            }
+        cpu.single_step().expect("Jump out of bounds");
+        instructions_ran += 1;
+
+        if cpu.terminated() {
+            break;
         }
 
-        modded = program.clone();
-        match modded.instructions[modded_ip].operation {
-            Operation::Acc => {},
-            Operation::Jmp => modded.instructions[modded_ip].operation = Operation::Nop,
-            Operation::Nop => modded.instructions[modded_ip].operation = Operation::Jmp,
+        if cpu.visited() {
+            return (false, cpu.accumulator, instructions_ran);
         }
-        modded_ip += 1;
     }
+
+    (true, cpu.accumulator, instructions_ran)
+}
+
+fn star_two(program: &Program) -> isize {
+    let mut cpu = CPU::new(program.clone());
+    let (_, result, instructions_ran) = run_possible_mods(&mut cpu, false);
+    println!("Ran {} instructions", instructions_ran);
+    result
 }
 
 fn main() {
     let file = File::open("./input").expect("Unreadable input file ./input");
-    let mut program = Program { instructions: vec![] };
+    let mut program = Program {
+        instructions: vec![],
+    };
     for line in io::BufReader::new(file).lines() {
         match line {
-            Ok(line) => program.add_instruction(&line).expect("Invalid data in input file"),
+            Ok(line) => program
+                .add_instruction(&line)
+                .expect("Invalid data in input file"),
             Err(_) => panic!("Could not read line"),
         }
     }
 
     println!("Star 1:");
     let acc_value_before_loop = star_one(&program);
-    println!("Accumulator value before the first loop: {}", acc_value_before_loop);
+    println!(
+        "Accumulator value before the first loop: {}",
+        acc_value_before_loop
+    );
 
     println!("Star 2:");
     let acc_value_after_exit = star_two(&program);
-    println!("Accumulator value after exit modification: {}", acc_value_after_exit);
+    println!(
+        "Accumulator value after exit modification: {}",
+        acc_value_after_exit
+    );
 }
 
 #[cfg(test)]
@@ -192,9 +249,13 @@ acc +6";
 
     #[test]
     fn test_star_one() {
-        let mut program = super::Program { instructions: vec![] };
+        let mut program = super::Program {
+            instructions: vec![],
+        };
         for line in TEST_DATA.lines().map(|x| x.to_string()) {
-            program.add_instruction(&line).expect("Invalid data in input file");
+            program
+                .add_instruction(&line)
+                .expect("Invalid data in input file");
         }
 
         assert_eq!(program.instructions.len(), 9);
@@ -202,16 +263,19 @@ acc +6";
         assert_eq!(program.instructions[1].operation, super::Operation::Acc);
         assert_eq!(program.instructions[1].operand, 1);
 
-        let mut cpu = super::CPU::new(&program);
-        cpu.run_program_until_loop().expect("Program should not jump out of bounds");
-        assert_eq!(cpu.accumulator, 5);
+        let result = super::star_one(&program);
+        assert_eq!(result, 5);
     }
 
     #[test]
     fn test_star_two() {
-        let mut program = super::Program { instructions: vec![] };
+        let mut program = super::Program {
+            instructions: vec![],
+        };
         for line in TEST_DATA.lines().map(|x| x.to_string()) {
-            program.add_instruction(&line).expect("Invalid data in input file");
+            program
+                .add_instruction(&line)
+                .expect("Invalid data in input file");
         }
 
         assert_eq!(program.instructions.len(), 9);
