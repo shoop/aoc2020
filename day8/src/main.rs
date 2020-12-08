@@ -324,7 +324,7 @@ acc +6";
         assert_eq!(program.instructions[1].operation, super::Operation::Acc);
         assert_eq!(program.instructions[1].operand, 1);
 
-        let result = super::star_two(&program);
+        let (result, _) = super::star_two(&program);
         assert_eq!(result, 8);
     }
 }
