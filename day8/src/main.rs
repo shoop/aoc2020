@@ -199,15 +199,45 @@ fn run_possible_mods(cpu: &mut CPU, is_modded: bool) -> (bool, isize, usize) {
     (true, cpu.accumulator, instructions_ran)
 }
 
-fn star_two(program: &Program) -> isize {
+fn star_two(program: &Program) -> (isize, usize) {
     let mut cpu = CPU::new(program.clone());
     let (done, result, instructions_ran) = run_possible_mods(&mut cpu, false);
     if !done {
         panic!("No solution found");
     }
 
-    println!("Ran {} instructions", instructions_ran);
-    result
+    (result, instructions_ran)
+}
+
+fn star_two_original(program: &Program) -> (isize, usize) {
+    let mut instructions_ran: usize = 0;
+    let mut modded = program.clone();
+    let mut modded_ip = 0;
+    loop {
+        let mut cpu = CPU::new(modded);
+        let done = cpu.run_program_until_loop().expect("Program should not jump out of bounds");
+        instructions_ran += cpu.visited.into_iter().filter(|x| *x).count();
+        if done {
+            return (cpu.accumulator, instructions_ran);
+        }
+
+        // Mod next instruction in sequence
+        // TODO: figure out smart walk
+        for (index, instruction) in program.instructions.iter().enumerate().skip(modded_ip) {
+            if instruction.operation == Operation::Jmp || instruction.operation == Operation::Nop {
+                modded_ip = index;
+                break;
+            }
+        }
+
+        modded = program.clone();
+        match modded.instructions[modded_ip].operation {
+            Operation::Acc => {},
+            Operation::Jmp => modded.instructions[modded_ip].operation = Operation::Nop,
+            Operation::Nop => modded.instructions[modded_ip].operation = Operation::Jmp,
+        }
+        modded_ip += 1;
+    }
 }
 
 fn main() {
@@ -232,10 +262,17 @@ fn main() {
     );
 
     println!("Star 2:");
-    let acc_value_after_exit = star_two(&program);
+    let (acc_value_after_exit, instructions_ran) = star_two_original(&program);
     println!(
-        "Accumulator value after exit modification: {}",
-        acc_value_after_exit
+        "Accumulator value after exit modification (brute force): {} (in {} instructions)",
+        acc_value_after_exit,
+        instructions_ran,
+    );
+    let (acc_value_after_exit, instructions_ran) = star_two(&program);
+    println!(
+        "Accumulator value after exit modification (depth-first): {} (in {} instructions)",
+        acc_value_after_exit,
+        instructions_ran,
     );
 }
 
