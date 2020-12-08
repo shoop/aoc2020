@@ -221,8 +221,7 @@ fn star_two_original(program: &Program) -> (isize, usize) {
             return (cpu.accumulator, instructions_ran);
         }
 
-        // Mod next instruction in sequence
-        // TODO: figure out smart walk
+        // Mod next instruction in sequence (brute force)
         for (index, instruction) in program.instructions.iter().enumerate().skip(modded_ip) {
             if instruction.operation == Operation::Jmp || instruction.operation == Operation::Nop {
                 modded_ip = index;
