@@ -201,7 +201,11 @@ fn run_possible_mods(cpu: &mut CPU, is_modded: bool) -> (bool, isize, usize) {
 
 fn star_two(program: &Program) -> isize {
     let mut cpu = CPU::new(program.clone());
-    let (_, result, instructions_ran) = run_possible_mods(&mut cpu, false);
+    let (done, result, instructions_ran) = run_possible_mods(&mut cpu, false);
+    if !done {
+        panic!("No solution found");
+    }
+
     println!("Ran {} instructions", instructions_ran);
     result
 }
