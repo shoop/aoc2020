@@ -131,12 +131,15 @@ fn star_one(program: &Program) -> isize {
 }
 
 fn star_two(program: &Program) -> isize {
+    let mut instructions_ran: usize = 0;
     let mut modded = program.clone();
     let mut modded_ip = 0;
     loop {
         let mut cpu = CPU::new(&modded);
         let done = cpu.run_program_until_loop().expect("Program should not jump out of bounds");
+        instructions_ran += cpu.visited.into_iter().filter(|x| *x).count();
         if done {
+            println!("Ran {} instructions", instructions_ran);
             return cpu.accumulator
         }
 
