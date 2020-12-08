@@ -55,6 +55,9 @@ impl Program {
 }
 
 #[derive(Debug)]
+struct JmpOutOfBoundsError;
+
+#[derive(Debug)]
 struct CPU {
     accumulator: isize,
     instruction_pointer: usize,
@@ -72,18 +75,31 @@ impl CPU {
         }
     }
 
-    fn run_program_until_loop(&mut self, program: &Program) {
+    fn update_instruction_pointer(&mut self, delta: isize) -> Result<(), JmpOutOfBoundsError> {
+        type IpModifier = fn(usize, usize) -> Option<usize>;
+        let mut f: IpModifier = usize::checked_add;
+        if delta < 0 {
+            f = usize::checked_sub;
+        }
+
+        match f(self.instruction_pointer, delta.abs() as usize) {
+            Some(ip) => self.instruction_pointer = ip,
+            None => return Err(JmpOutOfBoundsError),
+        }
+
+        Ok(())
+    }
+
+    fn run_program_until_loop(&mut self, program: &Program) -> Result<(), JmpOutOfBoundsError> {
         let mut visited = vec![false; program.instructions.len()];
 
         while !visited[self.instruction_pointer] {
             visited[self.instruction_pointer] = true;
             let delta = self.run_instruction(&program.instructions[self.instruction_pointer]);
-            if delta < 0 {
-                self.instruction_pointer = self.instruction_pointer.checked_sub(delta.abs() as usize).unwrap();
-            } else {
-                self.instruction_pointer = self.instruction_pointer.checked_add(delta as usize).unwrap();
-            }
+            self.update_instruction_pointer(delta)?;
         }
+
+        Ok(())
     }
 }
 
@@ -93,7 +109,7 @@ fn star_one(program: &Program) -> isize {
         instruction_pointer: 0,
     };
 
-    cpu.run_program_until_loop(program);
+    cpu.run_program_until_loop(program).expect("Program should not jump out of bounds");
     cpu.accumulator
 }
 
@@ -137,7 +153,7 @@ acc +6";
         assert_eq!(program.instructions[1].operand, 1);
 
         let mut cpu = super::CPU { accumulator: 0, instruction_pointer: 0 };
-        cpu.run_program_until_loop(&program);
+        cpu.run_program_until_loop(&program).expect("Program should not jump out of bounds");
         assert_eq!(cpu.accumulator, 5);
     }
 }
