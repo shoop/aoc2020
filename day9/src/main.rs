@@ -31,6 +31,24 @@ fn star_one(numbers: &Vec<isize>, window: usize) -> Option<isize> {
     }
 }
 
+fn star_two(numbers: &Vec<isize>, window: usize) -> Option<isize> {
+    let target = star_one(numbers, window).expect("No solution for star one found");
+    for range in 2..numbers.len() {
+        for i in 0..numbers.len() {
+            for j in i+range..numbers.len() {
+                let sum = numbers[i..j].iter().fold(0, |s, x| s + x);
+                if sum == target {
+                    let min = numbers[i..j].iter().min().expect("No minimum in range");
+                    let max = numbers[i..j].iter().max().expect("No maximum in range");
+                    return Some(min + max);
+                }
+            }
+        }
+    }
+
+    None
+}
+
 fn main() {
     let file = File::open("./input").expect("Unreadable input file ./input");
     let numbers: Vec<isize> = io::BufReader::new(file)
@@ -41,6 +59,9 @@ fn main() {
 
     let ans = star_one(&numbers, 25);
     println!("Star one: {}", ans.expect("No answer found"));
+
+    let ans = star_two(&numbers, 25);
+    println!("Star two: {}", ans.expect("No answer found"));
 }
 
 #[cfg(test)]
@@ -73,5 +94,14 @@ mod tests {
             .collect();
         let ans = super::star_one(&numbers, 5).expect("No answer found");
         assert_eq!(ans, 127);
+    }
+
+    #[test]
+    fn test_star_two() {
+        let numbers: Vec<isize> = TEST_DATA.lines().map(|x| String::from(x))
+            .map(|x| x.parse::<isize>().expect(&format!("Invalid number: {}", &x)))
+            .collect();
+        let ans = super::star_two(&numbers, 5).expect("No answer found");
+        assert_eq!(ans, 62);
     }
 }
