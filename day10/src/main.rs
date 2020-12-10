@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead};
@@ -44,7 +45,7 @@ fn star_two(joltages: &Vec<isize>) -> isize {
         .filter(|slice| slice.len() > 0 && slice[0] != 3)
 
         // Fold into a hashmap with keys the amount of consecutive ones
-        .fold(HashMap::new(), |mut s, d| { *s.entry(d.len() as isize).or_insert(0) += 1; s })
+        .fold(HashMap::new(), |mut s, d| { *s.entry(isize::try_from(d.len()).unwrap()).or_insert(0) += 1; s })
 
         // Fold the map into the single result by the base formula above
         .iter()
