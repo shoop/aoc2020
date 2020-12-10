@@ -26,34 +26,32 @@ fn star_two(joltages: &Vec<isize>) -> isize {
     joltages.sort();
     joltages.push(joltages[joltages.len()-1] + 3);
 
-    let (_, exponents): (isize, HashMap<isize, u32>) = joltages.windows(2)
+    // TODO: understand this part ;-D I got to the part where I collected the distances, but then gave up.
+    // Thanks to @johnny from MNOT for the working algorithm.
+    // Something to do with the amount of choices given consecutive single steps? But why?
+    //    base = (nr_ones ^ 2 - nr_ones + 2) / 2
+    //    result = multiply result of above formula for each length of consecutive ones
+    joltages
+        // Collect distances by subtracting consecutive values
+        .windows(2)
         .map(|sl| sl[1] - sl[0])
+        .collect::<Vec<isize>>()[..]
 
-        // TODO: understand this part ;-D I got this far but then gave up.
-        // Thanks to @johnny from MNOT for the working algorithm.
-        // Something to do with the amount of choices given consecutive single steps? But why?
-        //    base = (nr_ones ^ 2 - nr_ones + 2) / 2
-        //    result = multiply result of above formula for each length of consecutive ones
+        // Split on the 3-distance elements
+        .split(|d| d == &3)
 
-        .fold((0, HashMap::new()), |(mut consecutive_ones, mut exponents), d| {
-            match d {
-                1 => (consecutive_ones + 1, exponents),
-                3 => {
-                    if consecutive_ones != 0 {
-                        *exponents.entry(consecutive_ones).or_insert(0) += 1;
-                        consecutive_ones = 0;
-                    }
+        // Filter out every 3-distance element, and the final empty one
+        .filter(|slice| slice.len() > 0 && slice[0] != 3)
 
-                    (consecutive_ones, exponents)
-                },
-                _ => unreachable!(),
-            }
-        });
+        // Fold into a hashmap with keys the amount of consecutive ones
+        .fold(HashMap::new(), |mut s, d| { *s.entry(d.len() as isize).or_insert(0) += 1; s })
 
-    exponents.keys().fold(1, |result, key| {
-        let base = (key.pow(2) - key + 2) / 2;
-        result * base.pow(*exponents.get(key).unwrap())
-    })
+        // Fold the map into the single result by the base formula above
+        .iter()
+        .fold(1, |result, (key, value)| {
+            let base = (key.pow(2) - key + 2) / 2;
+            result * base.pow(*value)
+        })
 }
 
 fn main() {
