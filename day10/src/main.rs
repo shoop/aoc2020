@@ -26,39 +26,34 @@ fn star_two(joltages: &Vec<isize>) -> isize {
     joltages.sort();
     joltages.push(joltages[joltages.len()-1] + 3);
 
-    let distances: Vec<isize> = joltages.windows(2)
+    let (_, exponents): (isize, HashMap<isize, u32>) = joltages.windows(2)
         .map(|sl| sl[1] - sl[0])
-        .collect();
 
-    // TODO: understand this part ;-D I got this far but then gave up.
-    // Thanks to @johnny from MNOT for the working algorithm.
-    // Something to do with the amount of choices given consecutive single steps? But why?
-    //    base = (nr_ones ^ 2 - nr_ones + 2) / 2
-    //    result = multiply result of above formula for each length of consecutive ones
+        // TODO: understand this part ;-D I got this far but then gave up.
+        // Thanks to @johnny from MNOT for the working algorithm.
+        // Something to do with the amount of choices given consecutive single steps? But why?
+        //    base = (nr_ones ^ 2 - nr_ones + 2) / 2
+        //    result = multiply result of above formula for each length of consecutive ones
 
-    // TODO: how to do this iterator style in rust ?
-    // fold/map seem to require 1 :: 1 elements and I need to collect / count consecutive ones
-    let mut exponents: HashMap<isize, u32> = HashMap::new();
-    let mut consecutive_ones = 0;
-    for d in distances.iter() {
-        match d {
-            1 => consecutive_ones += 1,
-            3 => if consecutive_ones != 0 {
-                *exponents.entry(consecutive_ones).or_insert(0) += 1;
-                consecutive_ones = 0;
-            },
-            _ => unreachable!(),
-        };
-    };
+        .fold((0, HashMap::new()), |(mut consecutive_ones, mut exponents), d| {
+            match d {
+                1 => (consecutive_ones + 1, exponents),
+                3 => {
+                    if consecutive_ones != 0 {
+                        *exponents.entry(consecutive_ones).or_insert(0) += 1;
+                        consecutive_ones = 0;
+                    }
 
-    let mut result = 1;
-    let max_cons = *exponents.keys().max().unwrap();
-    for i in 2..max_cons+1 {
-        let base = (i.pow(2) - i + 2) / 2;
-        result = result * base.pow(*exponents.get(&i).unwrap());
-    }
+                    (consecutive_ones, exponents)
+                },
+                _ => unreachable!(),
+            }
+        });
 
-    result
+    exponents.keys().fold(1, |result, key| {
+        let base = (key.pow(2) - key + 2) / 2;
+        result * base.pow(*exponents.get(key).unwrap())
+    })
 }
 
 fn main() {
