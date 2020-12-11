@@ -33,6 +33,7 @@ impl Ferry {
     fn get_neighbours(&self, x: usize, y: usize) -> Vec<TileState> {
         let mut result: Vec<TileState> = vec![];
 
+        // TODO: probably more efficient to extend the map beforehand. Oh well, this works.
         if y > 0 && x > 0 {
             result.push(self.map[y - 1][x - 1]);
         } else {
