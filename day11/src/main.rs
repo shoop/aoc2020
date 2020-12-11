@@ -110,6 +110,102 @@ impl Ferry {
         people_changed
     }
 
+    fn walk_line_until_seat(&self, start: (isize, isize), walk: &dyn Fn(isize, isize) -> (isize, isize)) -> Option<(usize, usize)> {
+        let (mut cury, mut curx) = start;
+        let maxy = self.map.len() as isize;
+        let maxx = self.map[0].len() as isize;
+        while cury >= 0 && curx >= 0 && cury < maxy && curx < maxx {
+            if self.map[cury as usize][curx as usize] != TileState::Floor {
+                return Some((cury as usize, curx as usize));
+            }
+
+            // Interesting, cannot destructure on assigment, https://github.com/rust-lang/rfcs/issues/372
+            let result = walk(cury, curx);
+            cury = result.0;
+            curx = result.1;
+        }
+
+        None
+    }
+
+    fn get_first_visible_seats(&self, x: isize, y: isize) -> Vec<TileState> {
+        let mut result: Vec<TileState> = vec![];
+
+        result.push(match self.walk_line_until_seat((y - 1, x - 1), &|cury, curx| (cury - 1, curx - 1)) {
+            Some((y, x)) => self.map[y][x],
+            None => TileState::Floor,
+        });
+
+        result.push(match self.walk_line_until_seat((y - 1, x    ), &|cury, curx| (cury - 1, curx    )) {
+            Some((y, x)) => self.map[y][x],
+            None => TileState::Floor,
+        });
+
+        result.push(match self.walk_line_until_seat((y - 1, x + 1), &|cury, curx| (cury - 1, curx + 1)) {
+            Some((y, x)) => self.map[y][x],
+            None => TileState::Floor,
+        });
+
+        result.push(match self.walk_line_until_seat((y, x - 1    ), &|cury, curx| (cury    , curx - 1)) {
+            Some((y, x)) => self.map[y][x],
+            None => TileState::Floor,
+        });
+
+        result.push(match self.walk_line_until_seat((y, x + 1    ), &|cury, curx| (cury    , curx + 1)) {
+            Some((y, x)) => self.map[y][x],
+            None => TileState::Floor,
+        });
+
+        result.push(match self.walk_line_until_seat((y + 1, x - 1), &|cury, curx| (cury + 1, curx - 1)) {
+            Some((y, x)) => self.map[y][x],
+            None => TileState::Floor,
+        });
+
+        result.push(match self.walk_line_until_seat((y + 1, x    ), &|cury, curx| (cury + 1, curx    )) {
+            Some((y, x)) => self.map[y][x],
+            None => TileState::Floor,
+        });
+
+        result.push(match self.walk_line_until_seat((y + 1, x + 1), &|cury, curx| (cury + 1, curx + 1)) {
+            Some((y, x)) => self.map[y][x],
+            None => TileState::Floor,
+        });
+
+        result
+    }
+
+    fn shuffle_people_advanced(&mut self) -> usize {
+        let mut people_changed: usize = 0;
+        let mut new_state = self.clone();
+
+        for y in 0..self.map.len() {
+            for x in 0..self.map[y].len() {
+                match self.map[y][x] {
+                    TileState::Floor => {},
+                    TileState::Empty => {
+                        if self.get_first_visible_seats(x as isize, y as isize) .iter().fold(true, |s, t| match t {
+                            TileState::Occupied => false,
+                            _ => s & true,
+                        }) {
+                            new_state.map[y][x] = TileState::Occupied;
+                            people_changed += 1;
+                        };
+                    },
+                    TileState::Occupied => {
+                        if self.get_first_visible_seats(x as isize, y as isize).iter().filter(|t| t == &&TileState::Occupied).count() >= 5 {
+                            new_state.map[y][x] = TileState::Empty;
+                            people_changed += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        self.map = new_state.map;
+
+        people_changed
+    }
+
     fn count_occupied_seats(&self) -> usize {
         self.map.iter().fold(0, |sum, row| sum + row.iter().fold(0, |sum, tile| if tile == &TileState::Occupied { sum + 1} else { sum }))
     }
@@ -133,10 +229,17 @@ impl fmt::Display for Ferry {
 }
 
 fn star_one(ferry: &mut Ferry) -> usize {
-    println!("{}", ferry);
     loop {
         let people_changed = ferry.shuffle_people();
-        println!("{}", ferry);
+        if people_changed == 0 {
+            return ferry.count_occupied_seats();
+        }
+    }
+}
+
+fn star_two(ferry: &mut Ferry) -> usize {
+    loop {
+        let people_changed = ferry.shuffle_people_advanced();
         if people_changed == 0 {
             return ferry.count_occupied_seats();
         }
@@ -145,13 +248,18 @@ fn star_one(ferry: &mut Ferry) -> usize {
 
 fn main() {
     let file = File::open("./input").expect("Unreadable input file ./input");
-    let mut ferry = Ferry::new();
+    let mut ferry_star_one = Ferry::new();
     for line in io::BufReader::new(file).lines().map(|x| x.expect("Could not read line")) {
-        ferry.add_layout_from_line(&line);
+        ferry_star_one.add_layout_from_line(&line);
     }
 
-    let ans = star_one(&mut ferry);
+    let mut ferry_star_two = ferry_star_one.clone();
+
+    let ans = star_one(&mut ferry_star_one);
     println!("Star one: {}", ans);
+
+    let ans = star_two(&mut ferry_star_two);
+    println!("Star two: {}", ans);
 }
 
 #[cfg(test)]
@@ -176,5 +284,16 @@ L.LLLLL.LL";
 
         let ans = super::star_one(&mut ferry);
         assert_eq!(ans, 37);
+    }
+
+    #[test]
+    fn test_star_two() {
+        let mut ferry = super::Ferry::new();
+        for line in TEST_DATA.lines().map(|x| String::from(x)) {
+            ferry.add_layout_from_line(&line);
+        }
+
+        let ans = super::star_two(&mut ferry);
+        assert_eq!(ans, 26);
     }
 }
