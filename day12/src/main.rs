@@ -43,6 +43,8 @@ struct Ferry {
     cur_dir: Direction,
     cur_x: isize,
     cur_y: isize,
+    waypoint_x: isize,
+    waypoint_y: isize,
 }
 
 impl Ferry {
@@ -51,10 +53,12 @@ impl Ferry {
             cur_dir: Direction::East,
             cur_x: 0,
             cur_y: 0,
+            waypoint_x: 10,
+            waypoint_y: -1,
         }
     }
 
-    fn run_operations(&mut self, operations: &Vec<Operation>) {
+    fn run_deduced_operations(&mut self, operations: &Vec<Operation>) {
         for oper in operations {
             match oper {
                 Operation::North(operand) => self.cur_y -= operand,
@@ -69,6 +73,55 @@ impl Ferry {
                     Direction::East => self.cur_x += operand,
                     Direction::West => self.cur_x -= operand,
                 }
+            }
+        }
+    }
+
+    fn run_real_operations(&mut self, operations: &Vec<Operation>) {
+        for oper in operations {
+            match oper {
+                Operation::North(operand) => self.waypoint_y -= operand,
+                Operation::South(operand) => self.waypoint_y += operand,
+                Operation::East(operand) => self.waypoint_x += operand,
+                Operation::West(operand) => self.waypoint_x -= operand,
+                Operation::Left(operand) => match operand {
+                    270 => {
+                        let tmp = self.waypoint_x;
+                        self.waypoint_x = -self.waypoint_y;
+                        self.waypoint_y = tmp;
+                    },
+                    180 => {
+                        self.waypoint_x = -self.waypoint_x;
+                        self.waypoint_y = -self.waypoint_y;
+                    },
+                    90 => {
+                        let tmp = self.waypoint_x;
+                        self.waypoint_x = self.waypoint_y;
+                        self.waypoint_y = -tmp;
+                    },
+                    _ => unreachable!(),
+                },
+                Operation::Right(operand) => match operand {
+                    90 => {
+                        let tmp = self.waypoint_x;
+                        self.waypoint_x = -self.waypoint_y;
+                        self.waypoint_y = tmp;
+                    },
+                    180 => {
+                        self.waypoint_x = -self.waypoint_x;
+                        self.waypoint_y = -self.waypoint_y;
+                    },
+                    270 => {
+                        let tmp = self.waypoint_x;
+                        self.waypoint_x = self.waypoint_y;
+                        self.waypoint_y = -tmp;
+                    },
+                    _ => unreachable!(),
+                },
+                Operation::Forward(operand) => {
+                    self.cur_x += operand * self.waypoint_x;
+                    self.cur_y += operand * self.waypoint_y;
+                },
             }
         }
     }
@@ -97,7 +150,13 @@ fn operation_from_string(line: &str) -> Result<Operation, InvalidOperation> {
 
 fn star_one(operations: &Vec<Operation>) -> usize {
     let mut ferry = Ferry::new();
-    ferry.run_operations(operations);
+    ferry.run_deduced_operations(operations);
+    ferry.manhattan_distance()
+}
+
+fn star_two(operations: &Vec<Operation>) -> usize {
+    let mut ferry = Ferry::new();
+    ferry.run_real_operations(operations);
     ferry.manhattan_distance()
 }
 
@@ -111,6 +170,9 @@ fn main() {
 
     let ans = star_one(&operations);
     println!("Star one: {}", ans);
+
+    let ans = star_two(&operations);
+    println!("Star two: {}", ans);
 }
 
 #[cfg(test)]
@@ -131,5 +193,17 @@ F11";
 
         let ans = super::star_one(&operations);
         assert_eq!(ans, 25);
+    }
+
+    #[test]
+    fn test_star_two() {
+        let operations: Vec<super::Operation> = TEST_DATA
+            .lines()
+            .map(|x| String::from(x))
+            .map(|x| super::operation_from_string(&x).expect("Invalid operation in input file"))
+            .collect();
+
+        let ans = super::star_two(&operations);
+        assert_eq!(ans, 286);
     }
 }
