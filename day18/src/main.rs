@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::vec::Vec;
@@ -10,15 +11,111 @@ enum Token {
     Number(isize),
     Addition,
     Multiplication,
-    Parenthesis(Expression),
+    LeftParenthesis,
 }
 
 #[derive(Debug, PartialEq)]
 struct Expression {
+    advanced: bool,
+    precedence: Vec<Vec<Token>>,
     tokens: Vec<Token>,
 }
 
 impl Expression {
+    fn new(advanced: bool) -> Self {
+        if !advanced {
+            Expression {
+                advanced,
+                precedence: vec![vec![Token::Addition,Token::Multiplication]],
+                tokens: vec![],
+            }
+        }
+        else {
+            Expression {
+                advanced,
+                precedence: vec![vec![Token::Addition],vec![Token::Multiplication]],
+                tokens: vec![],
+            }
+        }
+    }
+
+    fn compare_precedence(&self, left: &Token, right: &Token) -> Ordering {
+        // TODO: probably should do caching
+        let left_idx = self.precedence.iter().enumerate().find_map(|(idx, vec)| if vec.contains(left) { Some(idx) } else { None }).unwrap();
+        let right_idx = self.precedence.iter().enumerate().find_map(|(idx, vec)| if vec.contains(right) { Some(idx) } else { None }).unwrap();
+        left_idx.cmp(&right_idx)
+    }
+
+    fn from_line(line: &str, advanced: bool) -> Result<Self, InvalidExpressionError>
+    {
+        let mut result = Expression::new(advanced);
+
+        // Cheat and ensure every token is separated by whitespace
+        let corrected = line.replace("(", "( ").replace(")", " )");
+        let mut tokens = corrected.split_ascii_whitespace();
+        let mut operstack: Vec<Token> = vec![];
+    
+        // Shunting Yard algorithm by Dijkstra
+        loop {
+            let t = tokens.next();
+            match t {
+                Some(raw_oper) if raw_oper == "+" || raw_oper == "*" => {
+                    let oper = match raw_oper {
+                        "+" => Token::Addition,
+                        "*" => Token::Multiplication,
+                        _ => unreachable!(),
+                    };
+                    while operstack.len() > 0 {
+                        let last = operstack.last().unwrap();
+                        if *last == Token::LeftParenthesis {
+                            break;
+                        }
+                        match result.compare_precedence(last, &oper) {
+                            Ordering::Less => break,
+                            // We only have left-associative operators + and * so both greater and equal cases are the same
+                            _ => {
+                                let last = operstack.pop().unwrap();
+                                result.tokens.push(last);
+                            }
+                        }
+                    }
+                    operstack.push(oper);
+                },
+                Some("(") => operstack.push(Token::LeftParenthesis),
+                Some(")") => {
+                    while operstack.len() > 0 && operstack.last().unwrap() != &Token::LeftParenthesis {
+                        let last = operstack.pop().unwrap();
+                        result.tokens.push(last);
+                    }
+                    if operstack.len() == 0 {
+                        return Err(InvalidExpressionError);
+                    }
+                    if operstack.last().unwrap() == &Token::LeftParenthesis {
+                        operstack.pop();
+                    }
+                },
+                Some(raw_number) => {
+                    if let Ok(number) = raw_number.parse::<isize>() {
+                        result.tokens.push(Token::Number(number));
+                    } else {
+                        return Err(InvalidExpressionError);
+                    }
+                },
+                None => break,
+            };
+        }
+
+        while operstack.len() > 0 {
+            let last = operstack.pop().unwrap();
+            if last == Token::LeftParenthesis {
+                return Err(InvalidExpressionError);
+            }
+            result.tokens.push(last);
+        }
+
+        Ok(result)
+    }
+    
     fn calculate(&self) -> isize {
         let mut operands: Vec<isize> = vec![];
         let mut generator = self.tokens.iter();
@@ -40,9 +137,7 @@ impl Expression {
                     // Cannot inline the double pop due to the fact that operands cannot be borrowed twice in the same call
                     operands.push(left_oper * right_oper);
                 },
-                Some(Token::Parenthesis(expr)) => {
-                    operands.push(expr.calculate());
-                },
+                Some(_) => unreachable!(),
                 None => break,
             }
         }
@@ -50,52 +145,6 @@ impl Expression {
         assert_eq!(operands.len(), 1);
         operands[0]
     }
-}
-
-fn parse_sub_expression<'a, I>(tokens: &mut I) -> Result<Expression, InvalidExpressionError>
-where
-    I: Iterator<Item = &'a str>,
-{
-    let mut expr = Expression { tokens: vec![] };
-    let mut oper: Option<Token> = None;
-
-    loop {
-        let t = tokens.next();
-        match t {
-            Some("+") => oper = Some(Token::Addition),
-            Some("*") => oper = Some(Token::Multiplication),
-            Some("(") => {
-                let nested = parse_sub_expression(tokens)?;
-                expr.tokens.push(Token::Parenthesis(nested));
-                if let Some(op) = oper {
-                    expr.tokens.push(op);
-                    oper = None;
-                }
-            },
-            Some(")") => {
-                return Ok(expr);
-            },
-            Some(nr) => {
-                if let Ok(number) = nr.parse::<isize>() {
-                    expr.tokens.push(Token::Number(number));
-                    if let Some(op) = oper {
-                        expr.tokens.push(op);
-                        oper = None;
-                    }
-                } else {
-                    return Err(InvalidExpressionError);
-                }
-            },
-            None => return Ok(expr),
-        };
-    }
-}
-
-fn parse_expression(line: &str) -> Result<Expression, InvalidExpressionError> {
-    // Cheat and ensure every token is separated by whitespace
-    let corrected = line.replace("(", "( ").replace(")", " )");
-    let mut iter = corrected.split_ascii_whitespace();
-    parse_sub_expression(&mut iter)
 }
 
 fn star_one(expressions: &Vec<Expression>) -> isize {
@@ -107,7 +156,7 @@ fn main() {
     let expressions: Vec<Expression> = io::BufReader::new(file)
         .lines()
         .map(|x| x.expect("Could not read line"))
-        .map(|x| parse_expression(&x).expect("Invalid operation in input file"))
+        .map(|x| Expression::from_line(&x, false).expect("Invalid operation in input file"))
         .collect();
 
     let ans = star_one(&expressions);
@@ -127,7 +176,7 @@ mod tests {
     fn test_star_one() {
         let expressions: Vec<super::Expression> = TEST_DATA
             .lines()
-            .map(|x| super::parse_expression(x).expect("Invalid operation in input file"))
+            .map(|x| super::Expression::from_line(&x, false).expect("Invalid operation in test data"))
             .collect();
 
         assert_eq!(expressions[0].tokens[0], super::Token::Number(1));
