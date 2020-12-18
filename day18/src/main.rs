@@ -33,7 +33,7 @@ impl Expression {
         else {
             Expression {
                 advanced,
-                precedence: vec![vec![Token::Addition],vec![Token::Multiplication]],
+                precedence: vec![vec![Token::Multiplication],vec![Token::Addition]],
                 tokens: vec![],
             }
         }
@@ -147,9 +147,10 @@ impl Expression {
     }
 }
 
-fn star_one(expressions: &Vec<Expression>) -> isize {
+fn sum_expressions(expressions: &Vec<Expression>) -> isize {
     expressions.iter().fold(0, |s, x| s + x.calculate())
 }
+
 
 fn main() {
     let file = File::open("./input").expect("Unreadable input file ./input");
@@ -159,8 +160,18 @@ fn main() {
         .map(|x| Expression::from_line(&x, false).expect("Invalid operation in input file"))
         .collect();
 
-    let ans = star_one(&expressions);
+    let ans = sum_expressions(&expressions);
     println!("Star one: {}", ans);
+
+    let file = File::open("./input").expect("Unreadable input file ./input");
+    let expressions: Vec<Expression> = io::BufReader::new(file)
+        .lines()
+        .map(|x| x.expect("Could not read line"))
+        .map(|x| Expression::from_line(&x, true).expect("Invalid operation in input file"))
+        .collect();
+
+    let ans = sum_expressions(&expressions);
+    println!("Star two: {}", ans);
 }
 
 #[cfg(test)]
@@ -187,7 +198,23 @@ mod tests {
         assert_eq!(expressions[0].calculate(), 71);
         assert_eq!(expressions[1].calculate(), 51);
 
-        let ans = super::star_one(&expressions);
+        let ans = super::sum_expressions(&expressions);
         assert_eq!(ans, 71 + 51 + 26 + 437 + 12240 + 13632);
+    }
+
+    #[test]
+    fn test_star_two() {
+        let expressions: Vec<super::Expression> = TEST_DATA
+            .lines()
+            .map(|x| super::Expression::from_line(&x, true).expect("Invalid operation in test data"))
+            .collect();
+
+        println!("{:?}", expressions[0]);
+        assert_eq!(expressions[0].calculate(), 231);
+        assert_eq!(expressions[1].calculate(), 51);
+        assert_eq!(expressions[2].calculate(), 46);
+
+        let ans = super::sum_expressions(&expressions);
+        assert_eq!(ans, 231 + 51 + 46 + 1445 + 669060 + 23340);
     }
 }
