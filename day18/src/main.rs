@@ -209,7 +209,6 @@ mod tests {
             .map(|x| super::Expression::from_line(&x, true).expect("Invalid operation in test data"))
             .collect();
 
-        println!("{:?}", expressions[0]);
         assert_eq!(expressions[0].calculate(), 231);
         assert_eq!(expressions[1].calculate(), 51);
         assert_eq!(expressions[2].calculate(), 46);
