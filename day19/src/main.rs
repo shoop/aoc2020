@@ -85,21 +85,46 @@ impl SatelliteMessages {
         Ok(sat)
     }
 
-    fn build_regexp(&self, index: usize, result: &mut String) {
+    fn build_regexp(&self, index: usize, result: &mut String, advanced: bool) {
+        if advanced && index == 8 {
+            result.push('(');
+            self.build_regexp(42, result, true);
+            result.push_str(")+");
+            return;
+        } else if advanced && index == 11 {
+            result.push('(');
+            // The ugly way -- try to preplan the amount of repetition.
+            // Max input length = 97, both rules 42 and 31 matches minimum of 5 characters,
+            // minimum repetition = 1 so we need to plan for 9 combinations (42,31) , (42,42,31,31) , etc.
+            for rep in 1..=9 {
+                for _ in 0..rep {
+                    self.build_regexp(42, result, true);
+                }
+                for _ in 0..rep {
+                    self.build_regexp(31, result, true);
+                }
+                if rep != 9 {
+                    result.push('|');
+                }
+            }
+            result.push(')');
+            return;
+        }
+
         match self.rules.get(&index).unwrap() {
             Rule::InOrder(vec) => {
                 for idx in vec {
-                    self.build_regexp(*idx, result);
+                    self.build_regexp(*idx, result, advanced);
                 }
             },
             Rule::Either(left, right) => {
                 result.push('(');
                 for idx in left {
-                    self.build_regexp(*idx, result);
+                    self.build_regexp(*idx, result, advanced);
                 }
                 result.push('|');
                 for idx in right {
-                    self.build_regexp(*idx, result);
+                    self.build_regexp(*idx, result, advanced);
                 }
                 result.push(')');
             },
@@ -109,9 +134,9 @@ impl SatelliteMessages {
         }
     }
 
-    fn matching_messages(&self) -> usize {
+    fn matching_messages(&self, advanced: bool) -> usize {
         let mut regexp = String::from("^");
-        self.build_regexp(0, &mut regexp);
+        self.build_regexp(0, &mut regexp, advanced);
         regexp.push('$');
         let re = Regex::new(&regexp).unwrap();
         let mut result: usize = 0;
@@ -127,8 +152,13 @@ impl SatelliteMessages {
 }
 
 fn star_one(messages: &SatelliteMessages) -> usize {
-    messages.matching_messages()
+    messages.matching_messages(false)
 }
+
+fn star_two(messages: &SatelliteMessages) -> usize {
+    messages.matching_messages(true)
+}
+
 
 fn main() {
     let file = File::open("./input").expect("Unreadable input file ./input");
@@ -140,6 +170,10 @@ fn main() {
     let messages = SatelliteMessages::from_lines(&lines).expect("Invalid rule in input file");
     let ans = star_one(&messages);
     println!("Star one: {}", ans);
+
+    let messages = SatelliteMessages::from_lines(&lines).expect("Invalid rule in input file");
+    let ans = star_two(&messages);
+    println!("Star two: {}", ans);
 }
 
 #[cfg(test)]
@@ -180,5 +214,66 @@ aaaabbb";
         let messages = super::SatelliteMessages::from_lines(&lines).expect("Invalid test data");
         let ans = super::star_one(&messages);
         assert_eq!(ans, 2);
+    }
+
+    static TEST_DATA_3: &str = "42: 9 14 | 10 1
+9: 14 27 | 1 26
+10: 23 14 | 28 1
+1: \"a\"
+11: 42 31
+5: 1 14 | 15 1
+19: 14 1 | 14 14
+12: 24 14 | 19 1
+16: 15 1 | 14 14
+31: 14 17 | 1 13
+6: 14 14 | 1 14
+2: 1 24 | 14 4
+0: 8 11
+13: 14 3 | 1 12
+15: 1 | 14
+17: 14 2 | 1 7
+23: 25 1 | 22 14
+28: 16 1
+4: 1 1
+20: 14 14 | 1 15
+3: 5 14 | 16 1
+27: 1 6 | 14 18
+14: \"b\"
+21: 14 1 | 1 14
+25: 1 1 | 1 14
+22: 14 14
+8: 42
+26: 14 22 | 1 20
+18: 15 15
+7: 14 5 | 1 21
+24: 14 1
+
+abbbbbabbbaaaababbaabbbbabababbbabbbbbbabaaaa
+bbabbbbaabaabba
+babbbbaabbbbbabbbbbbaabaaabaaa
+aaabbbbbbaaaabaababaabababbabaaabbababababaaa
+bbbbbbbaaaabbbbaaabbabaaa
+bbbababbbbaaaaaaaabbababaaababaabab
+ababaaaaaabaaab
+ababaaaaabbbaba
+baabbaaaabbaaaababbaababb
+abbbbabbbbaaaababbbbbbaaaababb
+aaaaabbaabaaaaababaa
+aaaabbaaaabbaaa
+aaaabbaabbaaaaaaabbbabbbaaabbaabaaa
+babaaabbbaaabaababbaabababaaab
+aabbbbbaabbbaaaaaabbbbbababaaaaabbaaabba";
+    
+    #[test]
+    fn test_star_two() {
+        let lines: Vec<String> = TEST_DATA_3.lines().map(|x| x.to_string()).collect();
+
+        let messages = super::SatelliteMessages::from_lines(&lines).expect("Invalid test data");
+        let ans = super::star_one(&messages);
+        assert_eq!(ans, 3);
+
+        let messages = super::SatelliteMessages::from_lines(&lines).expect("Invalid test data");
+        let ans = super::star_two(&messages);
+        assert_eq!(ans, 12);
     }
 }
