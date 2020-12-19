@@ -33,7 +33,7 @@ impl SatelliteMessages {
             line.trim()
                 .split_ascii_whitespace()
                 .map(|n| n.parse::<usize>().map_err(|_| InvalidRuleError))
-                .collect::<Result<Vec<usize>, InvalidRuleError>>()
+                .collect()
         }
 
         let mut split = line.split(":");
