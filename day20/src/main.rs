@@ -206,6 +206,7 @@ impl Tile {
                 self.flipns();
                 self.rotate90cw();
                 self.rotate90cw();
+                self.rotate90cw();
             }
         }
     }
