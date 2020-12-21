@@ -67,7 +67,7 @@ fn find_unique_ingredients(rules: &Vec<Rule>) -> HashSet<String> {
     unique_ingredients
 }
 
-fn star_one(rules: &Vec<Rule>) -> isize {
+fn find_inallergic_ingredients(rules: &Vec<Rule>) -> HashSet<String> {
     let unique_allergens = find_unique_allergens(rules);
     let mut unique_ingredients = find_unique_ingredients(rules);
 
@@ -86,21 +86,19 @@ fn star_one(rules: &Vec<Rule>) -> isize {
                     possible_ingredients = possible_ingredients.intersection(&ing_hash).map(|x| x.to_string()).collect();
                 }
             }
-
-            // Can't take difference, we don't have full information
-            //  else {
-            //     possible_ingredients = possible_ingredients.difference(&rule.ingredients).map(|x| x.to_string()).collect();
-            //     println!("rule {:?} does not contain, difference, possible {:?}", rule, possible_ingredients);
-            // }
         }
 
         unique_ingredients = unique_ingredients.difference(&possible_ingredients).map(|x| x.to_string()).collect();
     }
 
-    println!("found inallergic ingredients: {:?}", unique_ingredients);
+    unique_ingredients
+}
+
+fn star_one(rules: &Vec<Rule>) -> isize {
+    let inallergic_ingredients = find_inallergic_ingredients(rules);
 
     let mut result: isize = 0;
-    for ing in unique_ingredients {
+    for ing in inallergic_ingredients {
         for rule in rules.iter() {
             result += rule.ingredients.iter().filter(|&i| i == &ing).count() as isize;
         }
