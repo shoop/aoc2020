@@ -10,6 +10,7 @@ use std::vec::Vec;
 enum Pixel {
     Off = 0,
     On = 1,
+    DontCare = 2,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
@@ -54,6 +55,7 @@ impl std::fmt::Display for Tile {
                     .map(|x| match x {
                         Pixel::On => "#",
                         Pixel::Off => ".",
+                        Pixel::DontCare => "/",
                     })
                     .collect::<Vec<&str>>()
                     .join("")
@@ -319,7 +321,6 @@ fn make_tilemap(tiles: &Vec<Tile>) -> HashMap<(isize, isize), Tile> {
     tilemap.insert((0, 0), tiles[0].clone());
     coords_to_check.push((0, 0));
     placed_tiles.push(tiles[0].id);
-    println!("Placing tile {} at {:?} sym {:?}", tiles[0].id, (0, 0), tiles[0].orientation);
     while coords_to_check.len() > 0 {
         // Get the tile at cur_coord and determine the tiles next to it
         let cur_coord = coords_to_check.pop().unwrap();
@@ -365,8 +366,6 @@ fn make_tilemap(tiles: &Vec<Tile>) -> HashMap<(isize, isize), Tile> {
                     let mut placing = found.clone();
                     placing.rotate_to(&sym);
                     placed_tiles.push(placing.id);
-                    println!("Placing tile {} at {:?} sym {:?}", placing.id, new_coords, placing.orientation);
-                    println!("Matching up in dir {:?}: {} and {}", dir, cur_tile, placing);
                     tilemap.insert(new_coords, placing);
                     coords_to_check.push(new_coords);
                 }
@@ -384,12 +383,6 @@ fn make_tilemap(tiles: &Vec<Tile>) -> HashMap<(isize, isize), Tile> {
 fn star_one(tiles: &Vec<Tile>) -> usize {
     let tilemap = make_tilemap(tiles);
 
-    // Debug
-    println!("Final tilemap:");
-    for (coords, tile) in tilemap.iter() {
-        println!("coords {:?} {}", coords, tile);
-    }
-
     // Find min/max X and Y in tilemap
     // TODO: don't loop every time ?
     let &min_x = tilemap.keys().map(|(x, _)| x).min().unwrap();
@@ -397,37 +390,37 @@ fn star_one(tiles: &Vec<Tile>) -> usize {
     let &min_y = tilemap.keys().map(|(_, y)| y).min().unwrap();
     let &max_y = tilemap.keys().map(|(_, y)| y).max().unwrap();
 
-    println!("x from {} to {}", min_x, max_x);
-    println!("y from {} to {}", min_y, max_y);
+    // println!("x from {} to {}", min_x, max_x);
+    // println!("y from {} to {}", min_y, max_y);
 
-    println!("IDs per X/Y:");
-    for y in min_y..=max_y {
-        if y == min_y {
-            print!("    X ");
+    // println!("IDs per X/Y:");
+    // for y in min_y..=max_y {
+    //     if y == min_y {
+    //         print!("    X ");
 
-            // Print X header
-            for x in min_x..=max_x {
-                print!(" {:4}", x);
-            }
-            println!();
-        }
-        print!("Y {:3}:", y);
-        for x in min_x..=max_x {
-            if let Some(tile) = tilemap.get(&(x, y)) {
-                print!(" {:4}", tile.id);
-            } else {
-                print!("     ");
-            }
-        }
-        println!();
-    }
-    println!();
+    //         // Print X header
+    //         for x in min_x..=max_x {
+    //             print!(" {:4}", x);
+    //         }
+    //         println!();
+    //     }
+    //     print!("Y {:3}:", y);
+    //     for x in min_x..=max_x {
+    //         if let Some(tile) = tilemap.get(&(x, y)) {
+    //             print!(" {:4}", tile.id);
+    //         } else {
+    //             print!("     ");
+    //         }
+    //     }
+    //     println!();
+    // }
+    // println!();
 
     // Display corner tile IDs
-    println!("corner coords ({}, {}) {}", min_x, min_y, tilemap.get(&(min_x, min_y)).unwrap().id);
-    println!("corner coords ({}, {}) {}", min_x, max_y, tilemap.get(&(min_x, max_y)).unwrap().id);
-    println!("corner coords ({}, {}) {}", max_x, min_y, tilemap.get(&(max_x, min_y)).unwrap().id);
-    println!("corner coords ({}, {}) {}", max_x, max_y, tilemap.get(&(max_x, max_y)).unwrap().id);
+    // println!("corner coords ({}, {}) {}", min_x, min_y, tilemap.get(&(min_x, min_y)).unwrap().id);
+    // println!("corner coords ({}, {}) {}", min_x, max_y, tilemap.get(&(min_x, max_y)).unwrap().id);
+    // println!("corner coords ({}, {}) {}", max_x, min_y, tilemap.get(&(max_x, min_y)).unwrap().id);
+    // println!("corner coords ({}, {}) {}", max_x, max_y, tilemap.get(&(max_x, max_y)).unwrap().id);
 
     let result = tilemap.get(&(min_x, min_y)).unwrap().id
         * tilemap.get(&(min_x, max_y)).unwrap().id
@@ -435,6 +428,64 @@ fn star_one(tiles: &Vec<Tile>) -> usize {
         * tilemap.get(&(max_x, max_y)).unwrap().id;
 
     result
+}
+
+fn make_map(tilemap: &HashMap<(isize, isize), Tile>) -> Vec<Vec<Pixel>> {
+    // Find min/max X and Y in tilemap
+    // TODO: don't loop every time ?
+    let &min_x = tilemap.keys().map(|(x, _)| x).min().unwrap();
+    let &max_x = tilemap.keys().map(|(x, _)| x).max().unwrap();
+    let &min_y = tilemap.keys().map(|(_, y)| y).min().unwrap();
+    let &max_y = tilemap.keys().map(|(_, y)| y).max().unwrap();
+
+    // Tiles are 10x10 so without border 8x8. We know it is a 12x12 map so we konw the size of Vec<Vec<Pixel>> the large map is.
+    let mut large_map: Vec<Vec<Pixel>> = vec![vec![Pixel::Off; (max_x-min_x+1) as usize * 8]; (max_y-min_y+1) as usize * 8];
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let tile = tilemap.get(&(x, y)).unwrap();
+            for tile_y in 1..=8 {
+                for tile_x in 1..=8 {
+                    let target_y = ((y + (0 - min_y)) * 8) as usize + tile_y - 1;
+                    let target_x = ((x + (0 - min_x)) * 8) as usize + tile_x - 1;
+                    large_map[target_y][target_x] = tile.image[tile_y][tile_x];
+                }
+            }
+        }
+    }
+
+    large_map
+}
+
+fn print_map(map: Vec<Vec<Pixel>>) {
+    for x in map.iter() {
+        for pix in x.iter() {
+            print!("{}", match pix {
+                Pixel::On => "#",
+                Pixel::Off => ".",
+                Pixel::DontCare => "/",
+            });
+        }
+        println!();
+    }
+}
+
+fn star_two(tiles: &Vec<Tile>) -> usize {
+    let monster_str = "                  # 
+#    ##    ##    ###
+ #  #  #  #  #  #   ";
+    let _monster: Vec<Vec<Pixel>> = monster_str.split("\n").map(|line| {
+        line.chars().map(|ch| match ch {
+            '#' => Pixel::On,
+            ' ' => Pixel::DontCare,
+            _ => panic!(),
+        }).collect()
+    }).collect();
+
+    let tilemap = make_tilemap(tiles);
+    let map = make_map(&tilemap);
+    print_map(map);
+
+    1
 }
 
 fn main() {
@@ -446,6 +497,9 @@ fn main() {
     let tiles = parse_input(&mut lines).expect("Invalid input data");
     let ans = star_one(&tiles);
     println!("Star one: {}", ans);
+
+    let ans = star_two(&tiles);
+    println!("Star two: {}", ans);
 }
 
 #[cfg(test)]
@@ -564,5 +618,13 @@ Tile 3079:
         let tiles = super::parse_input(&mut lines).expect("Invalid test data");
         let ans = super::star_one(&tiles);
         assert_eq!(ans, 20899048083289);
+    }
+
+    #[test]
+    fn test_star_two() {
+        let mut lines = TEST_DATA.lines().map(|x| x.to_string()).peekable();
+        let tiles = super::parse_input(&mut lines).expect("Invalid test data");
+        let ans = super::star_two(&tiles);
+        assert_eq!(ans, 273);
     }
 }
