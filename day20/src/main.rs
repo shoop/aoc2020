@@ -6,11 +6,12 @@ use std::io::{self, BufRead};
 use std::iter::Peekable;
 use std::vec::Vec;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum Pixel {
     Off = 0,
     On = 1,
     DontCare = 2,
+    Monster = 3,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
@@ -56,6 +57,7 @@ impl std::fmt::Display for Tile {
                         Pixel::On => "#",
                         Pixel::Off => ".",
                         Pixel::DontCare => "/",
+                        Pixel::Monster => "O",
                     })
                     .collect::<Vec<&str>>()
                     .join("")
@@ -283,6 +285,146 @@ impl Tile {
     }
 }
 
+#[derive(Debug)]
+struct WorldMap {
+    pixels: Vec<Vec<Pixel>>,
+}
+
+impl std::fmt::Display for WorldMap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for x in self.pixels.iter() {
+            for pix in x.iter() {
+                write!(f, "{}", match pix {
+                    Pixel::On => "#",
+                    Pixel::Off => ".",
+                    Pixel::DontCare => "/",
+                    Pixel::Monster => "O",
+                })?;
+            }
+            writeln!(f)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl WorldMap {
+    fn from_tilemap(tilemap: &HashMap<(isize, isize), Tile>) -> Self {
+        // Find min/max X and Y in tilemap
+        // TODO: don't loop every time ?
+        let &min_x = tilemap.keys().map(|(x, _)| x).min().unwrap();
+        let &max_x = tilemap.keys().map(|(x, _)| x).max().unwrap();
+        let &min_y = tilemap.keys().map(|(_, y)| y).min().unwrap();
+        let &max_y = tilemap.keys().map(|(_, y)| y).max().unwrap();
+
+        // Tiles are 10x10 so without border 8x8.
+        let mut large_map: Vec<Vec<Pixel>> = vec![vec![Pixel::Off; (max_x-min_x+1) as usize * 8]; (max_y-min_y+1) as usize * 8];
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                let tile = tilemap.get(&(x, y)).unwrap();
+                for tile_y in 1..=8 {
+                    for tile_x in 1..=8 {
+                        let target_y = ((y + (0 - min_y)) * 8) as usize + tile_y - 1;
+                        let target_x = ((x + (0 - min_x)) * 8) as usize + tile_x - 1;
+                        large_map[target_y][target_x] = tile.image[tile_y][tile_x];
+                    }
+                }
+            }
+        }
+
+        WorldMap {
+            pixels: large_map,
+        }
+    }
+
+    fn rotate90cw(&mut self) {
+        let mut new_pixels: Vec<Vec<Pixel>> = vec![vec![Pixel::Off; self.pixels[0].len()]; self.pixels.len()];
+        for y in 0..self.pixels.len() {
+            for x in 0..self.pixels[0].len() {
+                new_pixels[y][x] = self.pixels[self.pixels.len() - 1 - x][y];
+            }
+        }
+        self.pixels = new_pixels;
+    }
+
+    fn flipns(&mut self) {
+        let mut new_pixels: Vec<Vec<Pixel>> = vec![vec![Pixel::Off; self.pixels[0].len()]; self.pixels.len()];
+        for y in 0..self.pixels.len() {
+            for x in 0..self.pixels[0].len() {
+                new_pixels[y][x] = self.pixels[self.pixels.len() - 1 - y][x];
+            }
+        }
+        self.pixels = new_pixels;
+    }
+
+    fn find_monsters(&mut self) -> bool {
+        let monster_str = "..................#.
+#....##....##....###
+.#..#..#..#..#..#...";
+        let _monster: Vec<Vec<Pixel>> = monster_str.split("\n").map(|line| {
+                line.chars().map(|ch| match ch {
+                    '#' => Pixel::On,
+                    '.' => Pixel::DontCare,
+                    _ => panic!(),
+                }).collect()
+            }).collect();
+        let mut found = false;
+        let mut mutated_pixels: Vec<Vec<Pixel>> = self.pixels.clone();
+
+        for y in 0..self.pixels.len() - _monster.len() {
+            for x in 0..(self.pixels.len() - _monster[0].len()) {
+                let mut complete = true;
+
+                'check: for (dy, ml) in _monster.iter().enumerate() {
+                    for (dx, mch) in ml.iter().enumerate() {
+                        let ch = self.pixels[y + dy][x + dx];
+                        complete = complete && match mch {
+                            Pixel::DontCare => true,
+                            Pixel::On => ch == Pixel::On,
+                            _ => unreachable!(),
+                        };
+                        if !complete {
+                            break 'check;
+                        }
+                    }
+                }
+
+                if complete {
+                    // We found a complete monster! Mark it on the mutated map
+                    found = true;
+
+                    for (dy, ml) in _monster.iter().enumerate() {
+                        for (dx, mch) in ml.iter().enumerate() {
+                            if mch == &Pixel::On {
+                                mutated_pixels[y + dy][x + dx] = Pixel::Monster;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if found {
+            self.pixels = mutated_pixels;
+        }
+        
+        found
+    }
+
+    fn roughness(&self) -> usize {
+        let mut result: usize = 0;
+        for y in self.pixels.iter() {
+            for x in y.iter() {
+                if x == &Pixel::On {
+                    result += 1;
+                }
+            }
+        }
+
+        result
+    }
+}
+
 fn parse_input<I>(iter: &mut Peekable<I>) -> Result<Vec<Tile>, ParseError>
 where
     I: Iterator,
@@ -380,6 +522,41 @@ fn make_tilemap(tiles: &Vec<Tile>) -> HashMap<(isize, isize), Tile> {
     tilemap
 }
 
+fn _print_tilemap(tilemap: &HashMap<(isize, isize), Tile>) {
+    // Find min/max X and Y in tilemap
+    // TODO: don't loop every time ?
+    let &min_x = tilemap.keys().map(|(x, _)| x).min().unwrap();
+    let &max_x = tilemap.keys().map(|(x, _)| x).max().unwrap();
+    let &min_y = tilemap.keys().map(|(_, y)| y).min().unwrap();
+    let &max_y = tilemap.keys().map(|(_, y)| y).max().unwrap();
+
+    println!("x from {} to {}", min_x, max_x);
+    println!("y from {} to {}", min_y, max_y);
+
+    println!("IDs per X/Y:");
+    for y in min_y..=max_y {
+        if y == min_y {
+            print!("    X ");
+
+            // Print X header
+            for x in min_x..=max_x {
+                print!(" {:4}", x);
+            }
+            println!();
+        }
+        print!("Y {:3}:", y);
+        for x in min_x..=max_x {
+            if let Some(tile) = tilemap.get(&(x, y)) {
+                print!(" {:4}", tile.id);
+            } else {
+                print!("     ");
+            }
+        }
+        println!();
+    }
+    println!();
+}
+
 fn star_one(tiles: &Vec<Tile>) -> usize {
     let tilemap = make_tilemap(tiles);
 
@@ -390,38 +567,6 @@ fn star_one(tiles: &Vec<Tile>) -> usize {
     let &min_y = tilemap.keys().map(|(_, y)| y).min().unwrap();
     let &max_y = tilemap.keys().map(|(_, y)| y).max().unwrap();
 
-    // println!("x from {} to {}", min_x, max_x);
-    // println!("y from {} to {}", min_y, max_y);
-
-    // println!("IDs per X/Y:");
-    // for y in min_y..=max_y {
-    //     if y == min_y {
-    //         print!("    X ");
-
-    //         // Print X header
-    //         for x in min_x..=max_x {
-    //             print!(" {:4}", x);
-    //         }
-    //         println!();
-    //     }
-    //     print!("Y {:3}:", y);
-    //     for x in min_x..=max_x {
-    //         if let Some(tile) = tilemap.get(&(x, y)) {
-    //             print!(" {:4}", tile.id);
-    //         } else {
-    //             print!("     ");
-    //         }
-    //     }
-    //     println!();
-    // }
-    // println!();
-
-    // Display corner tile IDs
-    // println!("corner coords ({}, {}) {}", min_x, min_y, tilemap.get(&(min_x, min_y)).unwrap().id);
-    // println!("corner coords ({}, {}) {}", min_x, max_y, tilemap.get(&(min_x, max_y)).unwrap().id);
-    // println!("corner coords ({}, {}) {}", max_x, min_y, tilemap.get(&(max_x, min_y)).unwrap().id);
-    // println!("corner coords ({}, {}) {}", max_x, max_y, tilemap.get(&(max_x, max_y)).unwrap().id);
-
     let result = tilemap.get(&(min_x, min_y)).unwrap().id
         * tilemap.get(&(min_x, max_y)).unwrap().id
         * tilemap.get(&(max_x, min_y)).unwrap().id
@@ -430,62 +575,24 @@ fn star_one(tiles: &Vec<Tile>) -> usize {
     result
 }
 
-fn make_map(tilemap: &HashMap<(isize, isize), Tile>) -> Vec<Vec<Pixel>> {
-    // Find min/max X and Y in tilemap
-    // TODO: don't loop every time ?
-    let &min_x = tilemap.keys().map(|(x, _)| x).min().unwrap();
-    let &max_x = tilemap.keys().map(|(x, _)| x).max().unwrap();
-    let &min_y = tilemap.keys().map(|(_, y)| y).min().unwrap();
-    let &max_y = tilemap.keys().map(|(_, y)| y).max().unwrap();
-
-    // Tiles are 10x10 so without border 8x8. We know it is a 12x12 map so we konw the size of Vec<Vec<Pixel>> the large map is.
-    let mut large_map: Vec<Vec<Pixel>> = vec![vec![Pixel::Off; (max_x-min_x+1) as usize * 8]; (max_y-min_y+1) as usize * 8];
-    for y in min_y..=max_y {
-        for x in min_x..=max_x {
-            let tile = tilemap.get(&(x, y)).unwrap();
-            for tile_y in 1..=8 {
-                for tile_x in 1..=8 {
-                    let target_y = ((y + (0 - min_y)) * 8) as usize + tile_y - 1;
-                    let target_x = ((x + (0 - min_x)) * 8) as usize + tile_x - 1;
-                    large_map[target_y][target_x] = tile.image[tile_y][tile_x];
-                }
-            }
-        }
-    }
-
-    large_map
-}
-
-fn print_map(map: Vec<Vec<Pixel>>) {
-    for x in map.iter() {
-        for pix in x.iter() {
-            print!("{}", match pix {
-                Pixel::On => "#",
-                Pixel::Off => ".",
-                Pixel::DontCare => "/",
-            });
-        }
-        println!();
-    }
-}
-
 fn star_two(tiles: &Vec<Tile>) -> usize {
-    let monster_str = "                  # 
-#    ##    ##    ###
- #  #  #  #  #  #   ";
-    let _monster: Vec<Vec<Pixel>> = monster_str.split("\n").map(|line| {
-        line.chars().map(|ch| match ch {
-            '#' => Pixel::On,
-            ' ' => Pixel::DontCare,
-            _ => panic!(),
-        }).collect()
-    }).collect();
-
     let tilemap = make_tilemap(tiles);
-    let map = make_map(&tilemap);
-    print_map(map);
+    let mut map = WorldMap::from_tilemap(&tilemap);
 
-    1
+    'outer: for _ in 0..2 {
+        for _ in 0..4 {
+            if map.find_monsters() {
+                break 'outer;
+            }
+            map.rotate90cw();
+        }
+        map.flipns();
+    }
+
+    // println!("{}", map);
+    let roughness = map.roughness();
+
+    roughness
 }
 
 fn main() {
