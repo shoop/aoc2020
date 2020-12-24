@@ -103,8 +103,8 @@ fn star_two(lines: &Vec<String>) -> isize {
         let min_y = floor.iter().map(|(pos, _)| pos.1).min().unwrap();
         let max_y = floor.iter().map(|(pos, _)| pos.1).max().unwrap();
 
-        for y in min_y..=max_y {
-            for x in min_x..=max_x {
+        for y in min_y-1..=max_y+1 {
+            for x in min_x-1..=max_x+1 {
                 let black_neighbours: isize = neighbours.iter().fold(0, |s, n| {
                     s + if let Some(TileColor::Black) = check.get(&(x+n.0,y+n.1)) {
                         1
