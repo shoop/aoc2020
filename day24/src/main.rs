@@ -45,10 +45,10 @@ fn _print_floor(floor: &HashMap<(isize, isize), TileColor>) {
     }
 }
 
-fn star_one(_lines: Vec<String>) -> isize {
+fn make_floor(lines: Vec<String>) -> HashMap<(isize, isize), TileColor> {
     let mut floor: HashMap<(isize, isize), TileColor> = HashMap::new();
 
-    for line in _lines.iter() {
+    for line in lines.iter() {
         let mut cur_pos: (isize, isize) = (0, 0);
         let mut diriter = line.chars();
         loop {
@@ -78,7 +78,12 @@ fn star_one(_lines: Vec<String>) -> isize {
             }
         }
     }
-    
+
+    floor
+}
+
+fn star_one(lines: Vec<String>) -> isize {
+    let floor = make_floor(lines);
     // _print_floor(&floor);
 
     floor
