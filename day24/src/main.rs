@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::vec::Vec;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 enum TileColor {
     Black,
     White,
@@ -45,7 +45,7 @@ fn _print_floor(floor: &HashMap<(isize, isize), TileColor>) {
     }
 }
 
-fn make_floor(lines: Vec<String>) -> HashMap<(isize, isize), TileColor> {
+fn make_floor(lines: &Vec<String>) -> HashMap<(isize, isize), TileColor> {
     let mut floor: HashMap<(isize, isize), TileColor> = HashMap::new();
 
     for line in lines.iter() {
@@ -82,9 +82,56 @@ fn make_floor(lines: Vec<String>) -> HashMap<(isize, isize), TileColor> {
     floor
 }
 
-fn star_one(lines: Vec<String>) -> isize {
+fn star_one(lines: &Vec<String>) -> isize {
     let floor = make_floor(lines);
     // _print_floor(&floor);
+
+    floor
+        .iter()
+        .filter(|(_, col)| col == &&TileColor::Black)
+        .count() as isize
+}
+
+fn star_two(lines: &Vec<String>) -> isize {
+    let neighbours: Vec<(isize, isize)> = vec![(0,-1), (1,-1), (1, 0), (0, 1), (-1, 1), (-1, 0)];
+    let mut floor = make_floor(lines);
+
+    for _day in 1..=100 {
+        let check = floor.clone();
+        let min_x = floor.iter().map(|(pos, _)| pos.0).min().unwrap();
+        let max_x = floor.iter().map(|(pos, _)| pos.0).max().unwrap();
+        let min_y = floor.iter().map(|(pos, _)| pos.1).min().unwrap();
+        let max_y = floor.iter().map(|(pos, _)| pos.1).max().unwrap();
+
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                let black_neighbours: isize = neighbours.iter().fold(0, |s, n| {
+                    s + if let Some(TileColor::Black) = check.get(&(x+n.0,y+n.1)) {
+                        1
+                    } else {
+                        0
+                    }
+                });
+                match check.get(&(x, y)) {
+                    Some(TileColor::White) | None => {
+                        if black_neighbours == 2 {
+                            *floor.entry((x, y)).or_insert(TileColor::White) = TileColor::Black;
+                        }
+                    },
+                    Some(TileColor::Black) => {
+                        if black_neighbours == 0 || black_neighbours > 2 {
+                            floor.remove(&(x, y));
+                        }
+                    },
+                }
+            }
+        }
+
+        println!("Day {}: {}", _day, floor
+            .iter()
+            .filter(|(_, col)| col == &&TileColor::Black)
+            .count() as isize);
+    }
 
     floor
         .iter()
@@ -99,8 +146,11 @@ fn main() {
         .map(|x| x.expect("Could not read line"))
         .collect();
 
-    let ans = star_one(lines);
+    let ans = star_one(&lines);
     println!("Star one: {}", ans);
+
+    let ans = star_two(&lines);
+    println!("Star two: {}", ans);
 }
 
 #[cfg(test)]
@@ -132,12 +182,20 @@ wseweeenwnesenwwwswnew";
     fn test_star_one() {
         let lines: Vec<String> = SIMPLE_TEST_DATA.lines().map(|x| x.to_string()).collect();
 
-        let ans = super::star_one(lines);
+        let ans = super::star_one(&lines);
         assert_eq!(ans, 1);
 
         let lines: Vec<String> = TEST_DATA.lines().map(|x| x.to_string()).collect();
 
-        let ans = super::star_one(lines);
+        let ans = super::star_one(&lines);
         assert_eq!(ans, 10);
+    }
+
+    #[test]
+    fn test_star_two() {
+        let lines: Vec<String> = TEST_DATA.lines().map(|x| x.to_string()).collect();
+
+        let ans = super::star_two(&lines);
+        assert_eq!(ans, 2208);
     }
 }
